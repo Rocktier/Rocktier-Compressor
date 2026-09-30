@@ -1,0 +1,34 @@
+# Dependencies
+node_modules/
+compress-engine/compress-engine-windows.exe
+compress-engine/compress-engine-macos
+compress-engine/compress-engine-linux
+src-tauri/compress-engine-windows.exe
+src-tauri/compress-engine-macos
+src-tauri/compress-engine-linux
+
+# Build output
+dist/
+src-tauri/target/
+src-tauri/gen/schemas/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Rust
+Cargo.lock
+
+# Keep go.mod/go.sum
+!compress-engine/go.mod
+!compress-engine/go.sum
+
+# Local env
+.env
+.env.local

@@ -1,0 +1,141 @@
+:root {
+  --bg: #0A0A0A;
+  --surface: #141414;
+  --border: #222222;
+  --text: #E8E8E8;
+  --text-muted: #888888;
+  --brand: #FF4A3D;
+  --radius: 12px;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Inter", sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  overflow: hidden;
+  height: 100vh;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.app {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+.titlebar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 48px;
+  padding: 0 16px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  -webkit-app-region: drag;
+}
+
+.titlebar-drag-region {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.brand-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--brand);
+}
+
+.title-text {
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.lang-toggle {
+  display: flex;
+  gap: 4px;
+  -webkit-app-region: no-drag;
+}
+
+.lang-toggle button {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.lang-toggle button.active {
+  background: var(--brand);
+  border-color: var(--brand);
+  color: white;
+}
+
+.content {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32px;
+}
+
+.dropzone {
+  width: 100%;
+  max-width: 480px;
+  aspect-ratio: 3 / 2;
+  border: 2px dashed var(--border);
+  border-radius: var(--radius);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  transition: border-color 0.2s;
+}
+
+.dropzone:hover {
+  border-color: var(--brand);
+}
+
+.dropzone-icon {
+  font-size: 48px;
+  color: var(--brand);
+  opacity: 0.6;
+}
+
+.dropzone-title {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.dropzone-subtitle {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.statusbar {
+  height: 32px;
+  padding: 0 16px;
+  display: flex;
+  align-items: center;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none !important;
+  }
+}
