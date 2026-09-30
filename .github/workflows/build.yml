@@ -30,18 +30,18 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy
-      - name: Install dependencies
-        run: npm ci
-      - name: Type check & build
-        run: npm run build
-      - name: Rust clippy
-        run: cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
       - name: Build compress-engine (all platforms)
         run: |
           cd compress-engine
           CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -o ../src-tauri/compress-engine-windows.exe .
           CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build -o ../src-tauri/compress-engine-macos .
           cd ..
+      - name: Install dependencies
+        run: npm ci
+      - name: Type check & build
+        run: npm run build
+      - name: Rust clippy
+        run: cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
 
   build-macos:
     name: macOS (Apple Silicon)
@@ -57,9 +57,10 @@ jobs:
           node-version: 20
           cache: 'npm'
       - uses: dtolnay/rust-toolchain@stable
-      - name: Build compress-engine (arm64)
+      - name: Build compress-engine (all platforms)
         run: |
           cd compress-engine
+          CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -o ../src-tauri/compress-engine-windows.exe .
           CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build -o ../src-tauri/compress-engine-macos .
           cd ..
       - name: Generate icon.icns from PNGs
@@ -105,11 +106,13 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: x86_64-pc-windows-msvc
-      - name: Build compress-engine (Windows)
+      - name: Build compress-engine (all platforms)
         run: |
           cd compress-engine
           $env:CGO_ENABLED='0'; $env:GOOS='windows'; $env:GOARCH='amd64'
           go build -o ../src-tauri/compress-engine-windows.exe .
+          $env:CGO_ENABLED='0'; $env:GOOS='darwin'; $env:GOARCH='arm64'
+          go build -o ../src-tauri/compress-engine-macos .
           cd ..
       - name: Install dependencies
         run: npm ci
