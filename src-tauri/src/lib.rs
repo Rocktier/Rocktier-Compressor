@@ -273,7 +273,7 @@ fn build_menu(app: tauri::AppHandle, lang: String) -> Result<(), String> {
     app.set_menu(menu).map_err(|e| e.to_string())?;
 
     if let Some(main_window) = app.get_webview_window("main") {
-        let _ = main_window.on_menu_event(move |window, event| {
+        main_window.on_menu_event(move |window, event| {
             let _ = window.emit("menu-action", event.id().as_ref());
         });
     }
