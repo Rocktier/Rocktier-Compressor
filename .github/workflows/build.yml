@@ -55,21 +55,6 @@ jobs:
           targets: aarch64-apple-darwin
       - name: Install dependencies
         run: npm ci
-      - name: Generate icon.icns from PNGs
-        run: |
-          mkdir -p src-tauri/icons/rocktier.iconset
-          cp src-tauri/icons/16x16.png src-tauri/icons/rocktier.iconset/icon_16x16.png
-          cp src-tauri/icons/32x32.png src-tauri/icons/rocktier.iconset/icon_16x16@2x.png
-          cp src-tauri/icons/32x32.png src-tauri/icons/rocktier.iconset/icon_32x32.png
-          cp src-tauri/icons/64x64.png src-tauri/icons/rocktier.iconset/icon_32x32@2x.png
-          cp src-tauri/icons/128x128.png src-tauri/icons/rocktier.iconset/icon_128x128.png
-          cp src-tauri/icons/256x256.png src-tauri/icons/rocktier.iconset/icon_128x128@2x.png
-          cp src-tauri/icons/256x256.png src-tauri/icons/rocktier.iconset/icon_256x256.png
-          cp src-tauri/icons/512x512.png src-tauri/icons/rocktier.iconset/icon_256x256@2x.png
-          cp src-tauri/icons/512x512.png src-tauri/icons/rocktier.iconset/icon_512x512.png
-          cp src-tauri/icons/1024x1024.png src-tauri/icons/rocktier.iconset/icon_512x512@2x.png
-          iconutil -c icns src-tauri/icons/rocktier.iconset -o src-tauri/icons/icon.icns
-          rm -rf src-tauri/icons/rocktier.iconset
       - name: Build compress-engine (all platforms)
         run: |
           cd compress-engine
