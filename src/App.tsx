@@ -54,6 +54,18 @@ function isSupported(p: string): boolean {
   return SUPPORTED_EXT.some((e) => lower.endsWith(e));
 }
 
+// The engine's get_profiles() returns fixed bilingual strings ("默认 / Default")
+// — fine for CLI humans, wrong for a UI that switches language. The frontend
+// owns i18n: map profile name → [label, description] per language, falling
+// back to whatever the engine sent for unknown profiles.
+const PROFILE_I18N: Record<string, { zh: [string, string]; en: [string, string] }> = {
+  default: { zh: ["默认", "平衡质量与体积"], en: ["Default", "Balanced quality and size"] },
+  web: { zh: ["网页", "优化用于网页上传"], en: ["Web", "Optimised for web upload"] },
+  print: { zh: ["打印", "保留打印质量"], en: ["Print", "Preserve print quality"] },
+  screen: { zh: ["屏幕", "屏幕显示即可"], en: ["Screen", "Screen display only"] },
+  maximum: { zh: ["极限", "最小文件，质量可损"], en: ["Maximum", "Smallest file, lossy"] },
+};
+
 export default function App() {
   const [lang, setLang] = useState<Lang>(() => {
     const saved = localStorage.getItem("co.lang");
@@ -354,11 +366,15 @@ export default function App() {
                 className={"chip" + (profile === p.name ? " active" : "")}
                 onClick={() => setProfile(p.name)}
               >
-                {p.label}
+                {PROFILE_I18N[p.name]?.[lang]?.[0] ?? p.label}
               </button>
             ))}
           </div>
-          {selProfile?.description ? <div className="profile-desc">{selProfile.description}</div> : null}
+          {selProfile ? (
+            <div className="profile-desc">
+              {PROFILE_I18N[selProfile.name]?.[lang]?.[1] ?? selProfile.description}
+            </div>
+          ) : null}
         </div>
         <div className="control-group">
           <div className="control-label">{t("质量", "Quality")}</div>
