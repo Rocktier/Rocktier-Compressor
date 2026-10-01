@@ -386,15 +386,19 @@ pub fn run() {
         .build(tauri::generate_context!())
         .expect("error while building tauri application");
 
-    app.run(|app_handle, event| {
+    app.run(|_app_handle, _event| {
         // Cold/hot-start file-open (macOS application:openURLs: → RunEvent::Opened).
         // On hot start the window exists, so emit straight to the UI; in both
         // cases buffer into PENDING_OPEN so setup can drain it on cold start.
-        if let tauri::RunEvent::Opened { urls } = event {
+        //
+        // The `Opened` variant itself is cfg-gated to macOS upstream — without
+        // this gate Windows builds fail with "no variant named `Opened`".
+        #[cfg(target_os = "macos")]
+        if let tauri::RunEvent::Opened { urls } = _event {
             for url in urls {
                 if let Ok(path) = url.to_file_path() {
                     let p = path.to_string_lossy().into_owned();
-                    if let Some(w) = app_handle.get_webview_window("main") {
+                    if let Some(w) = _app_handle.get_webview_window("main") {
                         let _ = w.emit("opened-file", p.clone());
                     }
                     if let Ok(mut q) = PENDING_OPEN.lock() {
