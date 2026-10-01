@@ -1,17 +1,20 @@
 package main
 
-// compressPDF optimizes a PDF file using pdfcpu.
-// For MVP, this is a stub — in production we link pdfcpu as a library.
+import (
+	"context"
+	"fmt"
+
+	api "github.com/pdfcpu/pdfcpu/pkg/api"
+)
+
+// compressPDF optimizes a PDF via pdfcpu (Apache-2.0, pure Go — no cgo, so the
+// CGO_ENABLED=0 cross-compile in CI is unaffected): prunes duplicate objects,
+// re-compresses streams, and drops unused resources. Encrypted files surface a
+// clear error from the library, which the UI shows as a per-file failure.
 func compressPDF(input, profile, quality string, result CompressResult) CompressResult {
-	// TODO: integrate pdfcpu Go API
-	// pdfcpu CLI equivalent:
-	//   pdfcpu optimize --stats -o output input.pdf
-	// This is a placeholder until pdfcpu is vendored.
-	result.CompressedSize = result.OriginalSize
-	result.Ratio = 1.0
-	result.Error = "PDF compression: pdfcpu integration pending (compress-engine scaffold)"
-	_ = input
-	_ = profile
-	_ = quality
+	if err := api.OptimizeFile(context.Background(), input, result.OutputPath, nil, nil); err != nil {
+		result.Error = fmt.Sprintf("PDF compression failed: %v", err)
+		return result
+	}
 	return result
 }

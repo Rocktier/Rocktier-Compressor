@@ -228,17 +228,33 @@ export default function App() {
                 <div className="file-meta">
                   <span className="file-name">{f.name}</span>
                   {f.status === "done" && f.result ? (
-                    <span className="file-info">
-                      {fmtBytes(f.result.originalSize)} → {fmtBytes(f.result.compressedSize)}{" "}
-                      <span className="ratio">({(f.result.ratio * 100).toFixed(0)}%)</span>
-                    </span>
+                    f.result.outputPath ? (
+                      <span className="file-info">
+                        {fmtBytes(f.result.originalSize)} → {fmtBytes(f.result.compressedSize)}{" "}
+                        <span className="ratio">({(f.result.ratio * 100).toFixed(0)}%)</span>
+                      </span>
+                    ) : (
+                      <span className="file-info muted">{t("已是最优，无需压缩", "Already optimized")}</span>
+                    )
                   ) : f.status === "error" ? (
                     <span className="file-info err">{f.error || t("失败", "Failed")}</span>
                   ) : (
                     <span className="file-info muted">{t("待压缩", "Pending")}</span>
                   )}
                 </div>
-                <button className="row-x" onClick={() => removeFile(f.path)} aria-label="Remove">×</button>
+                <div className="row-actions">
+                  {f.status === "done" && f.result?.outputPath ? (
+                    <button
+                      className="row-x"
+                      title={t("在访达中显示", "Show in Finder")}
+                      aria-label="Reveal"
+                      onClick={() => invoke("reveal_path", { path: f.result!.outputPath })}
+                    >
+                      ↗
+                    </button>
+                  ) : null}
+                  <button className="row-x" onClick={() => removeFile(f.path)} aria-label="Remove">×</button>
+                </div>
               </div>
             ))}
           </div>

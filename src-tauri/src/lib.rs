@@ -183,6 +183,14 @@ fn open_url(app: tauri::AppHandle, url: String) -> Result<(), String> {
     app.opener().open_url(url, None::<&str>).map_err(|e| e.to_string())
 }
 
+/// Reveal a compressed file in Finder/Explorer — the user must be able to
+/// find the output without guessing the "_compressed" naming rule.
+#[tauri::command]
+fn reveal_path(app: tauri::AppHandle, path: String) -> Result<(), String> {
+    use tauri_plugin_opener::OpenerExt;
+    app.opener().reveal_item_in_dir(&path).map_err(|e| e.to_string())
+}
+
 /// Recursively list files under a directory (used by the "Add Folder" menu
 /// action). Uses `walkdir` (already a dependency) so we don't shell out.
 #[tauri::command]
@@ -341,6 +349,7 @@ pub fn run() {
             get_profiles,
             batch_compress,
             list_files,
+            reveal_path,
             build_menu,
             initial_file,
             force_close,

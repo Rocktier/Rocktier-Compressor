@@ -186,6 +186,11 @@ body {
 .file-info .ratio {
   color: #4ade80;
 }
+.row-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
 .row-x {
   background: transparent;
   border: none;

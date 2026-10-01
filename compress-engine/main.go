@@ -96,6 +96,15 @@ func cmdCompress(input, profile, quality string) CompressResult {
 				result.Ratio = float64(result.CompressedSize) / float64(result.OriginalSize)
 			}
 		}
+		// First-principle honesty: never fake a win. If the "compressed"
+		// output is not actually smaller, discard it and report the file as
+		// already optimal (empty OutputPath, ratio 1.0, no error).
+		if result.CompressedSize >= result.OriginalSize {
+			_ = os.Remove(result.OutputPath)
+			result.OutputPath = ""
+			result.CompressedSize = result.OriginalSize
+			result.Ratio = 1.0
+		}
 	}
 
 	return result
