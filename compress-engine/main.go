@@ -17,6 +17,7 @@ type CompressResult struct {
 	Ratio         float64 `json:"ratio"`
 	Format        string  `json:"format"`
 	Error         string  `json:"error,omitempty"`
+	Note          string  `json:"note,omitempty"`
 }
 
 // Profile represents a named compression preset.
@@ -60,7 +61,7 @@ func outputFile(input string) string {
 // cmdCompress routes a single file to the correct pipeline based on detected
 // format and returns the result (does not print). `compress` prints it directly;
 // `batch` accumulates several into a single JSON array.
-func cmdCompress(input, profile, quality string) CompressResult {
+func cmdCompress(input, profile, quality string, targetBytes int64) CompressResult {
 	info, err := os.Stat(input)
 	if err != nil {
 		return CompressResult{InputPath: input, Error: fmt.Sprintf("cannot stat input: %v", err)}
@@ -84,9 +85,21 @@ func cmdCompress(input, profile, quality string) CompressResult {
 	case "pptx":
 		result = compressPptx(input, profile, quality, result)
 	case "jpeg", "png", "tiff":
-		result = compressImage(input, profile, quality, result)
+		if targetBytes > 0 {
+			if note, err := compressImageToTarget(input, result.OutputPath, profile, quality, targetBytes); err != nil {
+				result.Error = fmt.Sprintf("Image compression failed: %v", err)
+			} else {
+				result.Note = note
+			}
+		} else {
+			result = compressImage(input, profile, quality, result)
+		}
 	default:
 		result.Error = fmt.Sprintf("unsupported format: %s", format)
+	}
+
+	if targetBytes > 0 && format != "jpeg" && format != "png" && format != "tiff" && result.Error == "" {
+		result.Note = "目标大小暂仅支持图片 / Target size applies to images only"
 	}
 
 	if result.Error == "" {
@@ -128,16 +141,17 @@ func main() {
 	switch os.Args[1] {
 	case "compress":
 		if len(os.Args) < 6 {
-			fmt.Fprintln(os.Stderr, "usage: compress-engine compress --input <path> --profile <name> --quality <q>")
+			fmt.Fprintln(os.Stderr, "usage: compress-engine compress --input <path> --profile <name> --quality <q> [--target-bytes <n>]")
 			os.Exit(1)
 		}
-		input, profile, quality := parseFlags(os.Args[2:])
-		outputJSON(cmdCompress(input, profile, quality))
+		input, profile, quality, targetBytes := parseFlags(os.Args[2:])
+		outputJSON(cmdCompress(input, profile, quality, targetBytes))
 
 	case "batch":
 		args := os.Args[2:]
 		profile := "default"
 		quality := "medium"
+		var targetBytes int64
 		var paths []string
 		for i := 0; i < len(args); i++ {
 			switch args[i] {
@@ -147,13 +161,16 @@ func main() {
 			case "--quality":
 				quality = args[i+1]
 				i++
+			case "--target-bytes":
+				fmt.Sscanf(args[i+1], "%d", &targetBytes)
+				i++
 			default:
 				paths = append(paths, args[i])
 			}
 		}
 		var results []CompressResult
 		for _, p := range paths {
-			results = append(results, cmdCompress(p, profile, quality))
+			results = append(results, cmdCompress(p, profile, quality, targetBytes))
 		}
 		outputJSON(results)
 
@@ -167,7 +184,7 @@ func main() {
 }
 
 // parseFlags extracts named flags from argument list.
-func parseFlags(args []string) (input, profile, quality string) {
+func parseFlags(args []string) (input, profile, quality string, targetBytes int64) {
 	profile = "default"
 	quality = "medium"
 	for i := 0; i < len(args); i++ {
@@ -180,6 +197,9 @@ func parseFlags(args []string) (input, profile, quality string) {
 			i++
 		case "--quality":
 			quality = args[i+1]
+			i++
+		case "--target-bytes":
+			fmt.Sscanf(args[i+1], "%d", &targetBytes)
 			i++
 		}
 	}

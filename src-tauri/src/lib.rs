@@ -57,6 +57,7 @@ fn compress_file(
     path: String,
     profile: String,
     quality: String,
+    target_bytes: Option<u64>,
 ) -> Result<serde_json::Value, String> {
     let exe_dir = app_handle
         .path()
@@ -72,13 +73,17 @@ fn compress_file(
         return Err(format!("compress-engine not found at {engine_path:?}"));
     }
 
-    let output = Command::new(&engine_path)
-        .args([
-            "compress",
-            "--input", &path,
-            "--profile", &profile,
-            "--quality", &quality,
-        ])
+    let mut cmd = Command::new(&engine_path);
+    cmd.args([
+        "compress",
+        "--input", &path,
+        "--profile", &profile,
+        "--quality", &quality,
+    ]);
+    if let Some(n) = target_bytes.filter(|n| *n > 0) {
+        cmd.arg("--target-bytes").arg(n.to_string());
+    }
+    let output = cmd
         .output()
         .map_err(|e| format!("Failed to execute compress engine: {e}"))?;
 
@@ -132,6 +137,7 @@ fn batch_compress(
     paths: Vec<String>,
     profile: String,
     quality: String,
+    target_bytes: Option<u64>,
 ) -> Result<serde_json::Value, String> {
     let exe_dir = app_handle
         .path()
@@ -154,6 +160,10 @@ fn batch_compress(
         "--quality".to_string(),
         quality,
     ];
+    if let Some(n) = target_bytes.filter(|n| *n > 0) {
+        args.push("--target-bytes".to_string());
+        args.push(n.to_string());
+    }
     args.extend(paths.iter().map(|p| p.to_string()));
 
     let output = Command::new(&engine_path)

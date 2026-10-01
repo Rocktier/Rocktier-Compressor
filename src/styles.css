@@ -246,6 +246,13 @@ body {
   border-color: var(--brand);
   color: #fff;
 }
+.chip:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.file-info .note {
+  color: var(--text-muted);
+}
 
 /* ---------- Status bar / footer ---------- */
 .statusbar {

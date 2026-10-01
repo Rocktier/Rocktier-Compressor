@@ -13,7 +13,17 @@ type CompressResult = {
   ratio: number;
   format: string;
   error?: string;
+  note?: string;
 };
+
+// Preset target sizes (decimal MB, matching mail/upload limits). 0 = off.
+const TARGETS: { value: number; label: string }[] = [
+  { value: 0, label: "Off" },
+  { value: 1_000_000, label: "1 MB" },
+  { value: 5_000_000, label: "5 MB" },
+  { value: 10_000_000, label: "10 MB" },
+  { value: 25_000_000, label: "25 MB" },
+];
 type FileItem = {
   path: string;
   name: string;
@@ -54,6 +64,7 @@ export default function App() {
   const [quality, setQuality] = useState<"low" | "medium" | "high">(
     () => (localStorage.getItem("co.quality") as "low" | "medium" | "high") || "medium",
   );
+  const [target, setTarget] = useState<number>(() => Number(localStorage.getItem("co.target") || 0));
   const [files, setFiles] = useState<FileItem[]>([]);
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState("");
@@ -66,10 +77,12 @@ export default function App() {
   const qualityRef = useRef(quality);
   const busyRef = useRef(false);
   const cancelRef = useRef(false);
+  const targetRef = useRef(target);
   langRef.current = lang;
   filesRef.current = files;
   profileRef.current = profile;
   qualityRef.current = quality;
+  targetRef.current = target;
 
   const t = (zh: string, en: string) => (langRef.current === "zh" ? zh : en);
 
@@ -155,6 +168,7 @@ export default function App() {
           path: f.path,
           profile: profileRef.current,
           quality: qualityRef.current,
+          target_bytes: targetRef.current > 0 ? targetRef.current : undefined,
         });
         setFiles((prev) =>
           prev.map((x) =>
@@ -254,6 +268,7 @@ export default function App() {
   // Settings persist across launches.
   useEffect(() => { localStorage.setItem("co.profile", profile); }, [profile]);
   useEffect(() => { localStorage.setItem("co.quality", quality); }, [quality]);
+  useEffect(() => { localStorage.setItem("co.target", String(target)); }, [target]);
 
   const pendingCount = files.filter((f) => f.status !== "done").length;
   const selProfile = profiles.find((p) => p.name === profile);
@@ -293,6 +308,7 @@ export default function App() {
                       <span className="file-info">
                         {fmtBytes(f.result.originalSize)} → {fmtBytes(f.result.compressedSize)}{" "}
                         <span className="ratio">({(f.result.ratio * 100).toFixed(0)}%)</span>
+                        {f.result.note ? <span className="note"> · {f.result.note}</span> : null}
                       </span>
                     ) : (
                       <span className="file-info muted">
@@ -351,9 +367,27 @@ export default function App() {
               <button
                 key={q}
                 className={"chip" + (quality === q ? " active" : "")}
+                disabled={target > 0}
                 onClick={() => setQuality(q)}
               >
                 {q === "low" ? t("更小", "Smaller") : q === "medium" ? t("均衡", "Balanced") : t("更佳", "Better")}
+              </button>
+            ))}
+          </div>
+          {target > 0 ? (
+            <div className="profile-desc">{t("目标大小模式下自动调整质量", "Quality is auto-tuned to hit the target")}</div>
+          ) : null}
+        </div>
+        <div className="control-group">
+          <div className="control-label">{t("目标大小", "Target size")}</div>
+          <div className="chip-grid">
+            {TARGETS.map((tg) => (
+              <button
+                key={tg.value}
+                className={"chip" + (target === tg.value ? " active" : "")}
+                onClick={() => setTarget(tg.value)}
+              >
+                {tg.value === 0 ? t("关闭", "Off") : tg.label}
               </button>
             ))}
           </div>

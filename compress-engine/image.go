@@ -1,12 +1,15 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
 	"image"
 	"image/color"
 	"image/jpeg"
 	"image/png"
 	"os"
+	"path/filepath"
+	"strings"
 
 	"golang.org/x/image/draw"
 	"golang.org/x/image/tiff"
@@ -103,6 +106,145 @@ func loadImage(path string) (image.Image, error) {
 	defer f.Close()
 	img, _, err := image.Decode(f)
 	return img, err
+}
+
+// encodeImage serializes img in the given format; q <= 60 triggers 256-color
+// quantization for PNG (the "make it small" lever PNG otherwise lacks).
+func encodeImage(format string, img image.Image, q int) ([]byte, error) {
+	var buf bytes.Buffer
+	switch format {
+	case "jpeg":
+		if err := jpeg.Encode(&buf, img, &jpeg.Options{Quality: q}); err != nil {
+			return nil, err
+		}
+	case "png":
+		enc := png.Encoder{CompressionLevel: png.BestCompression}
+		var err error
+		if q <= 60 {
+			err = enc.Encode(&buf, quantize256(img))
+		} else {
+			err = enc.Encode(&buf, img)
+		}
+		if err != nil {
+			return nil, err
+		}
+	case "tiff":
+		if err := tiff.Encode(&buf, img, &tiff.Options{Compression: tiff.Deflate}); err != nil {
+			return nil, err
+		}
+	default:
+		return nil, fmt.Errorf("unsupported image format: %s", format)
+	}
+	return buf.Bytes(), nil
+}
+
+// targetResizeLadder: long-edge caps tried from gentlest to most aggressive.
+var targetResizeLadder = []int{0, 1920, 1280, 1024, 800, 640, 480}
+
+// compressImageToTarget searches (resize rung × encode quality) until the
+// output fits the target byte budget. JPEG binary-searches quality per rung;
+// PNG/TIFF walk their fixed levers. Returns a note when the target is
+// unreachable — we keep the smallest attempt and say so instead of lying.
+func compressImageToTarget(input, output, profile, quality string, target int64) (string, error) {
+	src, err := loadImage(input)
+	if err != nil {
+		return "", fmt.Errorf("cannot decode image: %w", err)
+	}
+	format := detectFormat(input)
+	startQ := jpegQuality(quality)
+
+	best := make([]byte, 0)
+	bestSize := int64(1) << 62
+	consider := func(data []byte, err error) {
+		if err != nil || len(data) == 0 {
+			return
+		}
+		if int64(len(data)) < bestSize {
+			bestSize = int64(len(data))
+			best = data
+		}
+	}
+
+	for _, rung := range targetResizeLadder {
+		img := src
+		if rung > 0 {
+			img = downsample(src, rung)
+		}
+		if format == "jpeg" {
+			lo, hi := 30, 95
+			var fit []byte
+			for lo <= hi {
+				mid := (lo + hi) / 2
+				data, err := encodeImage(format, img, mid)
+				if err != nil {
+					return "", err
+				}
+				if int64(len(data)) <= target {
+					fit = data
+					lo = mid + 1
+				} else {
+					consider(data, nil)
+					hi = mid - 1
+				}
+			}
+			if fit != nil {
+				if err := os.WriteFile(output, fit, 0644); err != nil {
+					return "", err
+				}
+				return "", nil
+			}
+		} else {
+			for _, q := range []int{startQ, 60} {
+				data, err := encodeImage(format, img, q)
+				consider(data, err)
+				if err == nil && int64(len(data)) <= target {
+					if err := os.WriteFile(output, data, 0644); err != nil {
+						return "", err
+					}
+					return "", nil
+				}
+			}
+		}
+	}
+
+	if len(best) == 0 {
+		return "", fmt.Errorf("cannot encode image")
+	}
+	if err := os.WriteFile(output, best, 0644); err != nil {
+		return "", err
+	}
+	return "未能压到目标大小，这已是最小 / Could not reach the target — this is the smallest we got", nil
+}
+
+// shrinkMediaData re-encodes an embedded Office image (JPEG/PNG/TIFF bytes)
+// down to the profile's long-edge cap. Returns the original bytes untouched
+// when the entry is not a media image, decoding fails, or the re-encode is
+// not smaller — media substitution must never corrupt or grow the document.
+func shrinkMediaData(data []byte, name, profile, quality string) []byte {
+	limit := maxImageEdge(profile)
+	if limit == 0 {
+		return data // default/print profiles preserve embedded media
+	}
+	var format string
+	switch strings.ToLower(filepath.Ext(name)) {
+	case ".jpg", ".jpeg":
+		format = "jpeg"
+	case ".png":
+		format = "png"
+	case ".tiff", ".tif":
+		format = "tiff"
+	default:
+		return data
+	}
+	img, _, err := image.Decode(bytes.NewReader(data))
+	if err != nil {
+		return data
+	}
+	out, err := encodeImage(format, downsample(img, limit), jpegQuality(quality))
+	if err != nil || len(out) >= len(data) {
+		return data
+	}
+	return out
 }
 
 // downsample scales the image so its long edge fits limit (never upscales).

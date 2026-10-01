@@ -61,7 +61,7 @@ func optimizeZip(input, output, profile, quality string) error {
 
 		// Re-compress embedded images based on profile/quality
 		if isImageInDocx(f.Name) {
-			data = recompressImage(data, f.Name, profile, quality)
+			data = shrinkMediaData(data, f.Name, profile, quality)
 		}
 
 		// Always store XML parts with best compression
@@ -100,13 +100,4 @@ func isAlreadyCompressed(name string) bool {
 		return true
 	}
 	return false
-}
-
-// recompressImage reduces image quality based on profile.
-func recompressImage(data []byte, name, profile, quality string) []byte {
-	// TODO: integrate bimg/libvips or Go image libraries
-	// For now, return original (size optimisation from deflate alone)
-	_ = profile
-	_ = quality
-	return data
 }

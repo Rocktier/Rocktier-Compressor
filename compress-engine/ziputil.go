@@ -44,6 +44,11 @@ func zipRepackageWithOptions(input, output, profile, quality string) error {
 			return fmt.Errorf("cannot read entry data: %w", err)
 		}
 
+		// Downsample embedded media per profile (pptx/xlsx win big here).
+		if strings.Contains(f.Name, "/media/") {
+			data = shrinkMediaData(data, f.Name, profile, quality)
+		}
+
 		// Select compression method based on content type
 		method := selectCompressionMethod(f.Name, profile, quality, data)
 
