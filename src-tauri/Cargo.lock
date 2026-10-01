@@ -1843,7 +1843,7 @@ dependencies = [
 
 [[package]]
 name = "jiff-core"
-version = "0.1.2"
+version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5e52fe76043ccecc9005d2305ebaadf7d7fc0cc89ca6baa10a94d6bc68c7128c"
 dependencies = [
@@ -2975,7 +2975,7 @@ dependencies = [
 
 [[package]]
 name = "rocktier-compressor"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "chrono",
  "serde",

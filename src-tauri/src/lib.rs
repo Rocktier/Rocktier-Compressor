@@ -183,10 +183,17 @@ fn batch_compress(
 }
 
 /// Open a URL in the default browser (whitelist: rocktier.com + mailto).
+/// Exact host match via URL parsing — a prefix check would let
+/// `https://rocktier.com.evil.tld/` through.
 #[tauri::command]
 fn open_url(app: tauri::AppHandle, url: String) -> Result<(), String> {
-    let allowed = url.starts_with("https://rocktier.com")
-        || url.starts_with("mailto:");
+    let allowed = url::Url::parse(&url).is_ok_and(|u| match u.scheme() {
+        "mailto" => true,
+        "https" => {
+            u.host_str() == Some("rocktier.com") || u.host_str() == Some("www.rocktier.com")
+        }
+        _ => false,
+    });
     if !allowed {
         return Err("URL not allowed".to_string());
     }

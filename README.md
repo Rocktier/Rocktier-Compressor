@@ -1,6 +1,6 @@
 # Rocktier Compressor (CO)
 
-Offline document and image compressor. Shrink PDFs, Office docs, and images without losing quality. Privacy-first: everything runs on your machine, not someone else's server.
+Offline document and image compressor. Shrink PDFs, Office docs, and images on your own machine — no uploads, no accounts. Privacy-first: everything runs locally.
 
 ## Tech Stack
 
@@ -9,9 +9,10 @@ Offline document and image compressor. Shrink PDFs, Office docs, and images with
 | Desktop | Tauri v2 (Rust) + React + TypeScript + Vite |
 | Compression Engine | Go (static binary embedded) |
 | PDF | pdfcpu (Apache-2.0) |
-| OOXML | Custom `archive/zip` + `encoding/xml` |
-| XLSX | excelize (BSD-3) |
-| Images | Go `image/*` standard library |
+| OOXML | Custom `archive/zip` repackage + embedded-media resampling |
+| Images | Go `image/*` stdlib + `golang.org/x/image` (BSD-3) |
+
+See `THIRD-PARTY-NOTICES.md` for full license attributions.
 
 ## Pricing
 
