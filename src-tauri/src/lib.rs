@@ -20,6 +20,12 @@ pub struct Ready(pub AtomicBool);
 /// Launch document buffered before frontend mount.
 pub struct InitialFile(pub Mutex<Option<String>>);
 
+/// Cold-start file-open queue. macOS `application:openURLs:` can arrive before
+/// the webview/frontend exists (tao#1235) — buffer here, drain in `setup`, and
+/// emit live to the window once it is mounted. Mirrors the Rocktier family
+/// PENDING pattern used by MD / CAD Viewer.
+static PENDING_OPEN: Mutex<Vec<String>> = Mutex::new(Vec::new());
+
 fn file_from_args() -> Option<String> {
     std::env::args_os()
         .skip(1)
@@ -177,6 +183,19 @@ fn open_url(app: tauri::AppHandle, url: String) -> Result<(), String> {
     app.opener().open_url(url, None::<&str>).map_err(|e| e.to_string())
 }
 
+/// Recursively list files under a directory (used by the "Add Folder" menu
+/// action). Uses `walkdir` (already a dependency) so we don't shell out.
+#[tauri::command]
+fn list_files(dir: String) -> Result<Vec<String>, String> {
+    let mut out = Vec::new();
+    for entry in walkdir::WalkDir::new(&dir).into_iter().filter_map(|e| e.ok()) {
+        if entry.file_type().is_file() {
+            out.push(entry.path().to_string_lossy().into_owned());
+        }
+    }
+    Ok(out)
+}
+
 /// Build the native application menu with family-standard structure.
 #[tauri::command]
 fn build_menu(app: tauri::AppHandle, lang: String) -> Result<(), String> {
@@ -291,21 +310,29 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .setup(|app| {
             let handle = app.handle().to_owned();
-            let initial = file_from_args();
-            if let Some(file) = initial {
-                app.manage(InitialFile(Mutex::new(Some(file.to_string()))));
-            } else {
-                app.manage(InitialFile(Mutex::new(None)));
-            }
+            let initial = {
+                let mut q = PENDING_OPEN.lock().unwrap();
+                let first = q.drain(..).next();
+                first.or_else(file_from_args)
+            };
+            app.manage(InitialFile(Mutex::new(initial)));
             app.manage(Ready(AtomicBool::new(false)));
             let _ = build_default_menu(handle);
             Ok(())
         })
         .on_window_event(|window, event| {
-            if let WindowEvent::CloseRequested { .. } = event {
-                // Family-standard close-guard pattern.
+            if let WindowEvent::CloseRequested { api, .. } = event {
+                // Family-standard close-guard: intercept only after the frontend
+                // has mounted (mark_ready). Before that, let the window close
+                // normally so a failed startup can't leave a zombie window.
+                let ready = window.state::<Ready>().0.load(Ordering::Acquire);
+                if !ready {
+                    return;
+                }
+                api.prevent_close();
                 let _ = window.emit("app-close-requested", ());
             }
         })
@@ -313,6 +340,7 @@ pub fn run() {
             compress_file,
             get_profiles,
             batch_compress,
+            list_files,
             build_menu,
             initial_file,
             force_close,
@@ -320,7 +348,26 @@ pub fn run() {
             open_url,
         ]);
 
-    builder
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+    let app = builder
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application");
+
+    app.run(|app_handle, event| {
+        // Cold/hot-start file-open (macOS application:openURLs: → RunEvent::Opened).
+        // On hot start the window exists, so emit straight to the UI; in both
+        // cases buffer into PENDING_OPEN so setup can drain it on cold start.
+        if let tauri::RunEvent::Opened { urls } = event {
+            for url in urls {
+                if let Ok(path) = url.to_file_path() {
+                    let p = path.to_string_lossy().into_owned();
+                    if let Some(w) = app_handle.get_webview_window("main") {
+                        let _ = w.emit("opened-file", p.clone());
+                    }
+                    if let Ok(mut q) = PENDING_OPEN.lock() {
+                        q.push(p);
+                    }
+                }
+            }
+        }
+    });
 }

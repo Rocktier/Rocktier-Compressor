@@ -23,7 +23,10 @@ src-tauri/gen/schemas/
 Thumbs.db
 
 # Rust
-Cargo.lock
+# Cargo.lock is committed on purpose: an untracked lock lets cargo silently
+# resolve a newer `tauri` than the pinned npm @tauri-apps/* versions, which makes
+# the Windows MSIX bundle step fail the version precheck. (Family rule.)
+
 
 # Keep go.mod/go.sum
 !compress-engine/go.mod

@@ -1,11 +1,28 @@
+@font-face {
+  font-family: "Geist";
+  src: url("./fonts/Geist-Variable.woff2") format("woff2");
+  font-weight: 100 900;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Geist Mono";
+  src: url("./fonts/GeistMono-Variable.woff2") format("woff2");
+  font-weight: 100 900;
+  font-display: swap;
+}
+
 :root {
-  --bg: #0A0A0A;
+  --bg: #0a0a0a;
   --surface: #141414;
+  --surface-2: #1c1c1c;
   --border: #222222;
-  --text: #E8E8E8;
+  --text: #e8e8e8;
   --text-muted: #888888;
-  --brand: #FF4A3D;
+  --brand: #ff4a3d;
+  --brand-hover: #cc3a30;
   --radius: 12px;
+  --font-sans: "Geist", -apple-system, BlinkMacSystemFont, "Segoe UI", "Inter", sans-serif;
+  --font-mono: "Geist Mono", ui-monospace, monospace;
 }
 
 * {
@@ -15,10 +32,10 @@
 }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Inter", sans-serif;
+  font-family: var(--font-sans);
   background: var(--bg);
   color: var(--text);
-  overflow: hidden;
+  overflow: hidden; /* 家族规范：任何情况下不出现滚动条 */
   height: 100vh;
   -webkit-user-select: none;
   user-select: none;
@@ -30,6 +47,7 @@ body {
   height: 100vh;
 }
 
+/* ---------- Title bar ---------- */
 .titlebar {
   display: flex;
   align-items: center;
@@ -40,31 +58,26 @@ body {
   border-bottom: 1px solid var(--border);
   -webkit-app-region: drag;
 }
-
 .titlebar-drag-region {
   display: flex;
   align-items: center;
   gap: 8px;
 }
-
 .brand-dot {
   width: 8px;
   height: 8px;
   border-radius: 50%;
   background: var(--brand);
 }
-
 .title-text {
   font-weight: 600;
   font-size: 14px;
 }
-
 .lang-toggle {
   display: flex;
   gap: 4px;
   -webkit-app-region: no-drag;
 }
-
 .lang-toggle button {
   background: transparent;
   border: 1px solid var(--border);
@@ -74,21 +87,25 @@ body {
   font-size: 12px;
   cursor: pointer;
 }
-
 .lang-toggle button.active {
   background: var(--brand);
   border-color: var(--brand);
-  color: white;
+  color: #fff;
 }
 
+/* ---------- Content ---------- */
 .content {
   flex: 1;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 32px;
+  min-height: 0;
 }
-
+.content.with-list {
+  align-items: stretch;
+  padding: 12px 16px;
+}
 .dropzone {
   width: 100%;
   max-width: 480px;
@@ -100,38 +117,164 @@ body {
   align-items: center;
   justify-content: center;
   gap: 12px;
+  cursor: pointer;
   transition: border-color 0.2s;
 }
-
 .dropzone:hover {
   border-color: var(--brand);
 }
-
 .dropzone-icon {
   font-size: 48px;
   color: var(--brand);
   opacity: 0.6;
 }
-
 .dropzone-title {
   font-size: 16px;
   font-weight: 600;
 }
-
 .dropzone-subtitle {
   font-size: 13px;
   color: var(--text-muted);
 }
 
+/* ---------- File list ---------- */
+.file-list {
+  flex: 1;
+  overflow-y: auto;
+  scrollbar-width: none; /* Firefox */
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.file-list::-webkit-scrollbar {
+  display: none; /* Chrome/Safari */
+}
+.file-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.file-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.file-name {
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.file-info {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+}
+.file-info.err {
+  color: var(--brand);
+}
+.file-info.muted {
+  opacity: 0.6;
+}
+.file-info .ratio {
+  color: #4ade80;
+}
+.row-x {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 4px;
+}
+.row-x:hover {
+  color: var(--brand);
+}
+
+/* ---------- Controls ---------- */
+.controls {
+  display: flex;
+  gap: 24px;
+  padding: 12px 16px;
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+}
+.control-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.control-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+}
+.chip-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(96px, 1fr));
+  gap: 4px;
+}
+.chip {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.chip:hover {
+  border-color: var(--text-muted);
+}
+.chip.active {
+  background: var(--brand);
+  border-color: var(--brand);
+  color: #fff;
+}
+
+/* ---------- Status bar / footer ---------- */
 .statusbar {
-  height: 32px;
+  height: 56px;
   padding: 0 16px;
   display: flex;
   align-items: center;
+  justify-content: space-between;
   background: var(--surface);
   border-top: 1px solid var(--border);
   font-size: 12px;
   color: var(--text-muted);
+}
+.status-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.primary {
+  background: var(--brand);
+  border: none;
+  color: #fff;
+  padding: 8px 18px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.primary:hover:not(:disabled) {
+  background: var(--brand-hover);
+}
+.primary:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
 }
 
 @media (prefers-reduced-motion: reduce) {

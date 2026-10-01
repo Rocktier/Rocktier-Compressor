@@ -21,53 +21,114 @@
     ],
     "fileAssociations": [
       {
-        "ext": ["pdf"],
+        "ext": [
+          "pdf"
+        ],
         "name": "Document To Compress",
         "description": "PDF Document",
         "role": "Editor",
-        "mimeType": "application/pdf"
+        "mimeType": "application/pdf",
+        "exportedType": {
+          "identifier": "com.adobe.pdf",
+          "conformsTo": [
+            "public.data"
+          ]
+        }
       },
       {
-        "ext": ["docx"],
+        "ext": [
+          "docx"
+        ],
         "name": "Document To Compress",
         "description": "Word Document",
         "role": "Editor",
-        "mimeType": "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        "mimeType": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "exportedType": {
+          "identifier": "org.openxmlformats.wordprocessingml.document",
+          "conformsTo": [
+            "public.data"
+          ]
+        }
       },
       {
-        "ext": ["xlsx"],
+        "ext": [
+          "xlsx"
+        ],
         "name": "Document To Compress",
         "description": "Excel Spreadsheet",
         "role": "Editor",
-        "mimeType": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        "mimeType": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "exportedType": {
+          "identifier": "org.openxmlformats.spreadsheetml.sheet",
+          "conformsTo": [
+            "public.data"
+          ]
+        }
       },
       {
-        "ext": ["pptx"],
+        "ext": [
+          "pptx"
+        ],
         "name": "Document To Compress",
         "description": "PowerPoint Presentation",
         "role": "Editor",
-        "mimeType": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+        "mimeType": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+        "exportedType": {
+          "identifier": "org.openxmlformats.presentationml.presentation",
+          "conformsTo": [
+            "public.data"
+          ]
+        }
       },
       {
-        "ext": ["jpg", "jpeg"],
+        "ext": [
+          "jpg",
+          "jpeg"
+        ],
         "name": "Image To Compress",
         "description": "JPEG Image",
         "role": "Editor",
-        "mimeType": "image/jpeg"
+        "mimeType": "image/jpeg",
+        "exportedType": {
+          "identifier": "public.jpeg",
+          "conformsTo": [
+            "public.image",
+            "public.data"
+          ]
+        }
       },
       {
-        "ext": ["png"],
+        "ext": [
+          "png"
+        ],
         "name": "Image To Compress",
         "description": "PNG Image",
         "role": "Editor",
-        "mimeType": "image/png"
+        "mimeType": "image/png",
+        "exportedType": {
+          "identifier": "public.png",
+          "conformsTo": [
+            "public.image",
+            "public.data"
+          ]
+        }
       },
       {
-        "ext": ["tiff", "tif"],
+        "ext": [
+          "tiff",
+          "tif"
+        ],
         "name": "Image To Compress",
         "description": "TIFF Image",
         "role": "Editor",
-        "mimeType": "image/tiff"
+        "mimeType": "image/tiff",
+        "exportedType": {
+          "identifier": "public.tiff",
+          "conformsTo": [
+            "public.image",
+            "public.data"
+          ]
+        }
       }
     ],
     "copyright": "Copyright 2026 Rocktier",
@@ -106,7 +167,7 @@
       "endpoints": [
         "https://github.com/Rocktier/Rocktier-Compressor/releases/latest/download/latest.json"
       ],
-      "pubkey": "",
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDM0OEU2RkNDRTA3RUZFMTIKUldRUy9uN2d6RytPTkxoZk1yUXFjeWV4K2JSWUszZ1ZhbUVnRytOa3RvbDVseVh1NEtjdnlLNkEK",
       "windows": {
         "installMode": "passive"
       }

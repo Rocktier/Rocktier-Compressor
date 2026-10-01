@@ -57,12 +57,13 @@ func outputFile(input string) string {
 	return base + "_compressed" + ext
 }
 
-// cmdCompress routes a single file to the correct pipeline based on detected format.
-func cmdCompress(input, profile, quality string) {
+// cmdCompress routes a single file to the correct pipeline based on detected
+// format and returns the result (does not print). `compress` prints it directly;
+// `batch` accumulates several into a single JSON array.
+func cmdCompress(input, profile, quality string) CompressResult {
 	info, err := os.Stat(input)
 	if err != nil {
-		outputError(input, fmt.Sprintf("cannot stat input: %v", err))
-		return
+		return CompressResult{InputPath: input, Error: fmt.Sprintf("cannot stat input: %v", err)}
 	}
 
 	format := detectFormat(input)
@@ -97,7 +98,7 @@ func cmdCompress(input, profile, quality string) {
 		}
 	}
 
-	outputJSON(result)
+	return result
 }
 
 func outputError(input, msg string) {
@@ -122,7 +123,7 @@ func main() {
 			os.Exit(1)
 		}
 		input, profile, quality := parseFlags(os.Args[2:])
-		cmdCompress(input, profile, quality)
+		outputJSON(cmdCompress(input, profile, quality))
 
 	case "batch":
 		args := os.Args[2:]
@@ -141,9 +142,11 @@ func main() {
 				paths = append(paths, args[i])
 			}
 		}
+		var results []CompressResult
 		for _, p := range paths {
-			cmdCompress(p, profile, quality)
+			results = append(results, cmdCompress(p, profile, quality))
 		}
+		outputJSON(results)
 
 	case "profiles":
 		json.NewEncoder(os.Stdout).Encode(getProfiles())

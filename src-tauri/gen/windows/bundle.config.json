@@ -1,0 +1,21 @@
+{
+  "identifier": "Rocktier.RocktierCompressor",
+  "publisher": "CN=4EA39D7A-401B-4D56-98D0-8ECB1F2B8DF7",
+  "publisherDisplayName": "Rocktier",
+  "capabilities": {
+    "general": []
+  },
+  "extensions": {
+    "shareTarget": false,
+    "fileAssociations": [],
+    "protocolHandlers": []
+  },
+  "signing": {
+    "pfx": null,
+    "pfxPassword": null
+  },
+  "resourceIndex": {
+    "enabled": false,
+    "keepConfig": false
+  }
+}

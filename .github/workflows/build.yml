@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       release_tag:
-        description: 'Attach built artifacts to this release tag (e.g. v1.0.0)'
+        description: 'Publish to this existing release tag (e.g. v1.0.0)'
         required: true
         type: string
 
@@ -30,12 +30,6 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy
-      - name: Build compress-engine (all platforms)
-        run: |
-          cd compress-engine
-          CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -o ../src-tauri/compress-engine-windows.exe .
-          CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build -o ../src-tauri/compress-engine-macos .
-          cd ..
       - name: Install dependencies
         run: npm ci
       - name: Type check & build
@@ -57,12 +51,10 @@ jobs:
           node-version: 20
           cache: 'npm'
       - uses: dtolnay/rust-toolchain@stable
-      - name: Build compress-engine (all platforms)
-        run: |
-          cd compress-engine
-          CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -o ../src-tauri/compress-engine-windows.exe .
-          CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build -o ../src-tauri/compress-engine-macos .
-          cd ..
+        with:
+          targets: aarch64-apple-darwin
+      - name: Install dependencies
+        run: npm ci
       - name: Generate icon.icns from PNGs
         run: |
           mkdir -p src-tauri/icons/rocktier.iconset
@@ -78,20 +70,93 @@ jobs:
           cp src-tauri/icons/1024x1024.png src-tauri/icons/rocktier.iconset/icon_512x512@2x.png
           iconutil -c icns src-tauri/icons/rocktier.iconset -o src-tauri/icons/icon.icns
           rm -rf src-tauri/icons/rocktier.iconset
-      - name: Install dependencies
-        run: npm ci
-      - name: Build DMG
-        run: npm run tauri build
-      - name: Upload DMG to Release
+      - name: Build compress-engine (all platforms)
         run: |
-          for i in {1..10}; do
-            gh release upload ${{ inputs.release_tag || github.ref_name }} src-tauri/target/release/bundle/dmg/*.dmg --clobber && break || sleep 5
-          done
+          cd compress-engine
+          CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -o ../src-tauri/compress-engine-windows.exe .
+          CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build -o ../src-tauri/compress-engine-macos .
+          cd ..
+      - name: Build DMG + app
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+        run: npm run tauri:build -- --target aarch64-apple-darwin
+      - name: Sign the app bundle, notarize it, and repack the DMG
+        env:
+          APPLE_CERT_P12: ${{ secrets.APPLE_CERT_P12 }}
+          APPLE_CERT_PASSWORD: ${{ secrets.APPLE_CERT_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
+        run: |
+          set -euo pipefail
+          app=$(find src-tauri/target/aarch64-apple-darwin/release/bundle/macos \
+            -maxdepth 1 -name '*.app' | head -1)
+          dmg=$(find src-tauri/target/aarch64-apple-darwin/release/bundle/dmg \
+            -name '*.dmg' | head -1)
+
+          sign_app=(-s -)
+          if [ -n "${APPLE_CERT_P12:-}" ]; then
+            keychain="$RUNNER_TEMP/rocktier-signing.keychain-db"
+            echo "$APPLE_CERT_P12" | base64 --decode > "$RUNNER_TEMP/cert.p12"
+            security create-keychain -p "" "$keychain"
+            security set-keychain-settings -lut 900 "$keychain"
+            security unlock-keychain -p "" "$keychain"
+            security import "$RUNNER_TEMP/cert.p12" -k "$keychain" \
+              -P "$APPLE_CERT_PASSWORD" -T /usr/bin/codesign
+            security set-key-partition-list -S apple-tool:,apple: -k "" "$keychain" >/dev/null
+            security list-keychains -d user -s "$keychain" $(security list-keychains -d user | tr -d '"')
+            identity=$(security find-identity -v -p codesigning "$keychain" \
+              | awk '/Developer ID Application/ {print $2; exit}')
+            if [ -z "$identity" ]; then
+              echo "::error::APPLE_CERT_P12 is set but contains no Developer ID Application identity."
+              exit 1
+            fi
+            echo "signing as $identity"
+            sign_app=(-s "$identity" --options runtime --entitlements src-tauri/Entitlements.plist)
+          else
+            echo "::notice::No Developer ID certificate configured - ad-hoc signing. Downloaded copies will still be flagged by Gatekeeper."
+          fi
+
+          codesign "${sign_app[@]}" -fv --deep "$app"
+          codesign -dvvv "$app" 2>&1 | grep 'Signature=' || true
+
+          work=$(mktemp -d)
+          hdiutil convert "$dmg" -format UDRW -o "$work/rw.dmg" -quiet
+          mnt="$work/m"
+          mkdir -p "$mnt"
+          hdiutil attach "$work/rw.dmg" -readwrite -nobrowse -mountpoint "$mnt" -quiet
+          rm -rf "$mnt/$(basename "$app")"
+          cp -R "$app" "$mnt/"
+          hdiutil detach "$mnt" -quiet
+          hdiutil convert "$work/rw.dmg" -format UDZO -o "$work/signed.dmg" -quiet
+          mv "$work/signed.dmg" "$dmg"
+          rm -rf "$work"
+
+          if [ -n "${APPLE_CERT_P12:-}" ]; then
+            codesign -s "$identity" -fv "$dmg"
+            xcrun notarytool submit "$dmg" \
+              --apple-id "$APPLE_ID" --team-id "$APPLE_TEAM_ID" \
+              --password "$APPLE_APP_PASSWORD" --wait
+            xcrun stapler staple "$dmg"
+            xcrun stapler validate "$dmg"
+          else
+            codesign -s - -fv "$dmg"
+          fi
+          codesign -dvvv "$dmg" 2>&1 | grep 'Signature=' || true
+      - name: Package app.zip
+        run: |
+          APP=$(find src-tauri/target/aarch64-apple-darwin/release/bundle/macos -maxdepth 1 -name '*.app' | head -1)
+          [ -z "$APP" ] && { echo "::error::.app not found"; exit 1; }
+          ditto -c -k --keepParent "$APP" "Rocktier Compressor_aarch64.app.zip"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos-arm64
+          path: |
+            src-tauri/target/aarch64-apple-darwin/release/bundle/dmg/*.dmg
+            Rocktier Compressor_aarch64.app.zip
 
   build-windows:
-    name: Windows x64 (MSI + NSIS)
+    name: Windows x64 (MSI + NSIS + MSIX)
     needs: checks
     runs-on: windows-latest
     steps:
@@ -106,6 +171,8 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: x86_64-pc-windows-msvc
+      - name: Install dependencies
+        run: npm ci
       - name: Build compress-engine (all platforms)
         run: |
           cd compress-engine
@@ -114,17 +181,107 @@ jobs:
           $env:CGO_ENABLED='0'; $env:GOOS='darwin'; $env:GOARCH='arm64'
           go build -o ../src-tauri/compress-engine-macos .
           cd ..
-      - name: Install dependencies
-        run: npm ci
-      - name: Build MSI
-        run: npm run tauri build
-      - name: Upload MSI to Release
-        shell: bash
-        run: |
-          for i in {1..10}; do
-            gh release upload ${{ inputs.release_tag || github.ref_name }} \
-              src-tauri/target/release/bundle/msi/*.msi \
-              src-tauri/target/release/bundle/nsis/*.exe --clobber && break || sleep 5
-          done
+      - name: Build MSI + NSIS
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+        run: npm run tauri:build
+      - name: Build MSIX (for Microsoft Store)
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+        run: npm run tauri:windows:build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-x64
+          path: |
+            src-tauri/target/release/bundle/msi/*.msi
+            src-tauri/target/release/bundle/nsis/*.exe
+            # tauri-windows-bundle writes to src-tauri/target/msix/, NOT to
+            # gen/windows/ (that only holds the inputs). A wrong glob here fails
+            # silently: nothing is uploaded and nobody is told.
+            src-tauri/target/msix/*.msix*
+
+  release:
+    name: Publish release
+    needs: [build-macos, build-windows]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      REQUIRED_ASSETS: '\.dmg$ \.app\.zip$ \.msi$ \.exe$ \.msix$ \.msixbundle$'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+      - name: Attach installers to the release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          REPO="$GITHUB_REPOSITORY"
+          TAG="${{ inputs.release_tag || github.ref_name }}"
+          echo "Publishing $TAG to $REPO"
+
+          # NUL-delimited list: the product name contains spaces, so the path list
+          # must never be joined into one space-separated string (word splitting
+          # would cut every path at the first space). Hand paths over with xargs.
+          find artifacts -type f \
+            \( -name '*.dmg' -o -name '*.msi' -o -name '*.exe' \
+               -o -name '*.msix' -o -name '*.msixbundle' -o -name '*.zip' \) -print0 > installers.nul
+          count=$(tr -cd '\0' < installers.nul | wc -c)
+          echo "Found $count installer(s)"
+          if [ "$count" -eq 0 ]; then
+            echo "No installers were produced - refusing to publish an empty release." >&2
+            exit 1
+          fi
+          tr '\0' '\n' < installers.nul | sed 's/^/  /'
+
+          if ! gh release view "$TAG" --repo "$REPO" > /dev/null 2>&1; then
+            gh release create "$TAG" --repo "$REPO" --draft --title "$TAG" --notes "Automated build for $TAG"
+          fi
+          # This loop used to swallow its own failure: `cmd && break || sleep`
+          # leaves exit status 0 when every attempt fails, so the job reported
+          # success with nothing attached. Track the outcome and fail loudly.
+          uploaded=0
+          for i in $(seq 1 10); do
+            if xargs -0 -r gh release upload "$TAG" --repo "$REPO" --clobber < installers.nul; then
+              uploaded=1
+              break
+            fi
+            echo "upload attempt $i failed, retrying"
+            sleep 5
+          done
+          if [ "$uploaded" -ne 1 ]; then
+            echo "Uploading to $TAG failed after 10 attempts." >&2
+            exit 1
+          fi
+          echo "Attached $count file(s) to $TAG."
+
+          # 发布闸门：校验 5 包齐全才发布为 latest；不齐保留草稿并失败。
+          # GitHub 资产 API 上传后可能延迟可见，轮询最多 ~10 分钟再下结论。
+          sleep 20
+          missing=0
+          for i in $(seq 1 30); do
+            assets=$(gh release view "$TAG" --repo "$REPO" --json assets --jq '.assets[].name' 2>/dev/null || true)
+            missing=0
+            for pat in $REQUIRED_ASSETS; do
+              if ! printf '%s\n' "$assets" | grep -Eq "$pat"; then
+                missing=1
+              fi
+            done
+            [ "$missing" -eq 0 ] && break
+            echo "  waiting for uploads ($i/30)..."
+            sleep 20
+          done
+          if [ "$missing" -ne 0 ]; then
+            assets=$(gh release view "$TAG" --repo "$REPO" --json assets --jq '.assets[].name' 2>/dev/null || true)
+            for pat in $REQUIRED_ASSETS; do
+              if ! printf '%s\n' "$assets" | grep -Eq "$pat"; then
+                echo "::error::release $TAG missing asset matching $pat"
+              fi
+            done
+            echo "::error::release $TAG is missing required assets — left as DRAFT for manual review"
+            exit 1
+          fi
+          echo "All required assets present; publishing $TAG"
+          gh release edit "$TAG" --repo "$REPO" --draft=false --latest
