@@ -17,6 +17,7 @@ type CompressResult = {
 type FileItem = {
   path: string;
   name: string;
+  size?: number;
   status: "pending" | "done" | "error";
   result?: CompressResult;
   error?: string;
@@ -38,25 +39,33 @@ function basename(p: string): string {
   return p.split(/[/\\]/).pop() || p;
 }
 
+function isSupported(p: string): boolean {
+  const lower = p.toLowerCase();
+  return SUPPORTED_EXT.some((e) => lower.endsWith(e));
+}
+
 export default function App() {
   const [lang, setLang] = useState<Lang>(() => {
     const saved = localStorage.getItem("co.lang");
     return saved === "zh" || saved === "en" ? (saved as Lang) : "en"; // 家族规范：默认英文，不跟随系统
   });
   const [profiles, setProfiles] = useState<Profile[]>([]);
-  const [profile, setProfile] = useState<string>("default");
-  const [quality, setQuality] = useState<"low" | "medium" | "high">("medium");
+  const [profile, setProfile] = useState<string>(() => localStorage.getItem("co.profile") || "default");
+  const [quality, setQuality] = useState<"low" | "medium" | "high">(
+    () => (localStorage.getItem("co.quality") as "low" | "medium" | "high") || "medium",
+  );
   const [files, setFiles] = useState<FileItem[]>([]);
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState("");
 
   // Refs that always hold the latest values, so the once-registered menu /
-  // event listeners never read stale state.
+  // event listeners and the per-file compress loop never read stale state.
   const langRef = useRef<Lang>(lang);
   const filesRef = useRef<FileItem[]>(files);
   const profileRef = useRef(profile);
   const qualityRef = useRef(quality);
   const busyRef = useRef(false);
+  const cancelRef = useRef(false);
   langRef.current = lang;
   filesRef.current = files;
   profileRef.current = profile;
@@ -64,19 +73,34 @@ export default function App() {
 
   const t = (zh: string, en: string) => (langRef.current === "zh" ? zh : en);
 
-  const addPaths = (paths: string[]) => {
+  const addFile = (p: string) => {
     setFiles((prev) => {
-      const seen = new Set(prev.map((f) => f.path));
-      const next = [...prev];
-      for (const p of paths) {
-        const lower = p.toLowerCase();
-        if (!SUPPORTED_EXT.some((e) => lower.endsWith(e))) continue;
-        if (seen.has(p)) continue;
-        seen.add(p);
-        next.push({ path: p, name: basename(p), status: "pending" });
-      }
-      return next;
+      if (prev.some((f) => f.path === p)) return prev;
+      return [...prev, { path: p, name: basename(p), status: "pending" }];
     });
+    // Input sizes up front: know what you are shrinking before you run.
+    invoke<number>("file_size", { path: p })
+      .then((sz) => setFiles((prev) => prev.map((f) => (f.path === p ? { ...f, size: sz } : f))))
+      .catch(() => {});
+  };
+
+  const addPaths = async (paths: string[]) => {
+    for (const p of paths) {
+      if (isSupported(p)) {
+        addFile(p);
+        continue;
+      }
+      // No matching extension — it may be a dropped folder: walk it instead
+      // of silently dropping it (first principles: never lose a user's drop).
+      try {
+        const list = await invoke<string[]>("list_files", { dir: p });
+        for (const f of list) {
+          if (isSupported(f)) addFile(f);
+        }
+      } catch {
+        /* neither a supported file nor a readable folder — ignore */
+      }
+    }
   };
 
   const removeFile = (path: string) =>
@@ -102,6 +126,8 @@ export default function App() {
     }
   };
 
+  // Per-file compress loop driven from the frontend: real progress (current
+  // file + N/M) and a working cancel, without any Rust-side threading.
   const compress = async () => {
     if (busyRef.current) return;
     const pending = filesRef.current.filter((f) => f.status !== "done");
@@ -110,32 +136,61 @@ export default function App() {
       return;
     }
     busyRef.current = true;
+    cancelRef.current = false;
     setBusy(true);
-    setStatus(t("压缩中…", "Compressing…"));
-    try {
-      const res = await invoke<CompressResult[]>("batch_compress", {
-        paths: pending.map((f) => f.path),
-        profile: profileRef.current,
-        quality: qualityRef.current,
-      });
-      setFiles((prev) =>
-        prev.map((f) => {
-          const r = res.find((x) => x.inputPath === f.path);
-          if (!r) return f;
-          return { ...f, status: r.error ? "error" : "done", result: r, error: r.error };
-        }),
-      );
-      const ok = res.filter((r) => !r.error).length;
-      const fail = res.length - ok;
-      setStatus(
-        t(`完成：${ok} 成功${fail ? `，${fail} 失败` : ""}`, `Done: ${ok} ok${fail ? `, ${fail} failed` : ""}`),
-      );
-    } catch (e) {
-      setStatus(String(e));
-    } finally {
-      busyRef.current = false;
-      setBusy(false);
+    let ok = 0;
+    let fail = 0;
+    let orig = 0;
+    let comp = 0;
+    let skipped = 0;
+    for (let i = 0; i < pending.length; i++) {
+      if (cancelRef.current) {
+        skipped = pending.length - i;
+        break;
+      }
+      const f = pending[i];
+      setStatus(t(`压缩中 (${i + 1}/${pending.length})：`, `Compressing (${i + 1}/${pending.length}): `) + f.name);
+      try {
+        const r = await invoke<CompressResult>("compress_file", {
+          path: f.path,
+          profile: profileRef.current,
+          quality: qualityRef.current,
+        });
+        setFiles((prev) =>
+          prev.map((x) =>
+            x.path === f.path ? { ...x, status: r.error ? "error" : "done", result: r, error: r.error } : x,
+          ),
+        );
+        if (r.error) fail++;
+        else {
+          ok++;
+          orig += r.originalSize;
+          comp += r.compressedSize;
+        }
+      } catch (e) {
+        fail++;
+        setFiles((prev) =>
+          prev.map((x) => (x.path === f.path ? { ...x, status: "error", error: String(e) } : x)),
+        );
+      }
     }
+    let msg: string;
+    if (skipped > 0) {
+      msg = t(`已取消（完成 ${ok}，跳过 ${skipped}）`, `Cancelled (${ok} done, ${skipped} skipped)`);
+    } else if (fail === 0) {
+      msg = t(`完成：${ok} 个文件`, `Done: ${ok} file${ok === 1 ? "" : "s"}`);
+    } else {
+      msg = t(`完成：${ok} 成功，${fail} 失败`, `Done: ${ok} ok, ${fail} failed`);
+    }
+    if (orig > comp) {
+      msg += t(
+        `，共节省 ${fmtBytes(orig - comp)}（省 ${(100 - (comp / orig) * 100).toFixed(0)}%）`,
+        ` · saved ${fmtBytes(orig - comp)} (${(100 - (comp / orig) * 100).toFixed(0)}% off)`,
+      );
+    }
+    setStatus(msg);
+    busyRef.current = false;
+    setBusy(false);
   };
 
   // One-time wiring: frontend readiness, menu, cold-start file, drag-drop, close guard.
@@ -147,8 +202,9 @@ export default function App() {
       try {
         const p = await invoke<Profile[]>("get_profiles");
         setProfiles(p);
-        const def = p.find((x) => x.name === "default") || p[0];
-        if (def) {
+        // Restore saved settings only if they still exist; otherwise default.
+        if (p.length && !p.some((x) => x.name === profileRef.current)) {
+          const def = p.find((x) => x.name === "default") || p[0];
           setProfile(def.name);
           setQuality((def.quality as "low" | "medium" | "high") || "medium");
         }
@@ -195,7 +251,12 @@ export default function App() {
     document.title = "Rocktier Compressor";
   }, [lang]);
 
+  // Settings persist across launches.
+  useEffect(() => { localStorage.setItem("co.profile", profile); }, [profile]);
+  useEffect(() => { localStorage.setItem("co.quality", quality); }, [quality]);
+
   const pendingCount = files.filter((f) => f.status !== "done").length;
+  const selProfile = profiles.find((p) => p.name === profile);
 
   return (
     <div className="app">
@@ -234,12 +295,18 @@ export default function App() {
                         <span className="ratio">({(f.result.ratio * 100).toFixed(0)}%)</span>
                       </span>
                     ) : (
-                      <span className="file-info muted">{t("已是最优，无需压缩", "Already optimized")}</span>
+                      <span className="file-info muted">
+                        {t("已是最优，无需压缩", "Already optimized")}
+                        {f.result.originalSize ? ` · ${fmtBytes(f.result.originalSize)}` : ""}
+                      </span>
                     )
                   ) : f.status === "error" ? (
                     <span className="file-info err">{f.error || t("失败", "Failed")}</span>
                   ) : (
-                    <span className="file-info muted">{t("待压缩", "Pending")}</span>
+                    <span className="file-info muted">
+                      {t("待压缩", "Pending")}
+                      {f.size ? ` · ${fmtBytes(f.size)}` : ""}
+                    </span>
                   )}
                 </div>
                 <div className="row-actions">
@@ -275,6 +342,7 @@ export default function App() {
               </button>
             ))}
           </div>
+          {selProfile?.description ? <div className="profile-desc">{selProfile.description}</div> : null}
         </div>
         <div className="control-group">
           <div className="control-label">{t("质量", "Quality")}</div>
@@ -294,9 +362,15 @@ export default function App() {
 
       <footer className="statusbar">
         <span className="status-text">{status || t("就绪", "Ready")}</span>
-        <button className="primary" disabled={busy || pendingCount === 0} onClick={compress}>
-          {busy ? t("压缩中…", "Compressing…") : t("开始压缩", "Start Compress")}
-        </button>
+        {busy ? (
+          <button className="secondary" onClick={() => { cancelRef.current = true; }}>
+            {t("取消", "Cancel")}
+          </button>
+        ) : (
+          <button className="primary" disabled={pendingCount === 0} onClick={compress}>
+            {t("开始压缩", "Start Compress")}
+          </button>
+        )}
       </footer>
     </div>
   );

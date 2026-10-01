@@ -281,6 +281,25 @@ body {
   opacity: 0.4;
   cursor: not-allowed;
 }
+.secondary {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 8px 18px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.secondary:hover {
+  border-color: var(--brand);
+  color: var(--brand);
+}
+.profile-desc {
+  font-size: 11px;
+  color: var(--text-muted);
+  max-width: 220px;
+}
 
 @media (prefers-reduced-motion: reduce) {
   * {

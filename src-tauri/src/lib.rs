@@ -183,6 +183,13 @@ fn open_url(app: tauri::AppHandle, url: String) -> Result<(), String> {
     app.opener().open_url(url, None::<&str>).map_err(|e| e.to_string())
 }
 
+/// Size of a single file in bytes — the file list shows input sizes before
+/// any compression happens (first principles: know what you're shrinking).
+#[tauri::command]
+fn file_size(path: String) -> Result<u64, String> {
+    std::fs::metadata(&path).map(|m| m.len()).map_err(|e| e.to_string())
+}
+
 /// Reveal a compressed file in Finder/Explorer — the user must be able to
 /// find the output without guessing the "_compressed" naming rule.
 #[tauri::command]
@@ -350,6 +357,7 @@ pub fn run() {
             batch_compress,
             list_files,
             reveal_path,
+            file_size,
             build_menu,
             initial_file,
             force_close,
