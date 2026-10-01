@@ -138,7 +138,7 @@
   },
   "productName": "Rocktier Compressor",
   "mainBinaryName": "RocktierCompressor",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "identifier": "Rocktier.RocktierCompressor",
   "app": {
     "windows": [

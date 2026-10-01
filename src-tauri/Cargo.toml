@@ -1,6 +1,6 @@
 [package]
 name = "rocktier-compressor"
-version = "0.1.0"
+version = "0.1.1"
 description = "Shrink PDFs, Office docs, and images without losing quality. On your machine, not someone else's server."
 authors = ["Rocktier"]
 edition = "2021"
