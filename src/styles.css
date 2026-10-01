@@ -37,8 +37,7 @@ body {
   color: var(--text);
   overflow: hidden; /* 家族规范：任何情况下不出现滚动条 */
   height: 100vh;
-  -webkit-user-select: none;
-  user-select: none;
+  /* 文件处理工具必须让用户复制：错误信息、路径、状态栏都是要粘贴出去的。 */
 }
 
 .app {
@@ -57,7 +56,8 @@ body {
   padding: 0 16px 0 76px;
   background: var(--surface);
   border-bottom: 1px solid var(--border);
-  -webkit-app-region: drag;
+  /* 标题栏只作为窗口拖动区；标题栏本身不允许选中文字 */
+  user-select: none;
 }
 .titlebar-drag-region {
   display: flex;
@@ -191,6 +191,13 @@ body {
   display: flex;
   align-items: center;
   gap: 2px;
+}
+
+/* 键盘用户必须看得见焦点在哪（家族无障碍底线） */
+:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+  border-radius: var(--radius);
 }
 .row-x {
   background: transparent;

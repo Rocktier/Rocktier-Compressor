@@ -275,6 +275,8 @@ export default function App() {
     localStorage.setItem("co.lang", lang);
     invoke("build_menu", { lang }).catch(() => {});
     document.title = "Rocktier Compressor";
+    // 无障碍底线：屏幕阅读器要用对应语言的语音引擎朗读
+    document.documentElement.lang = lang;
   }, [lang]);
 
   // Settings persist across launches.
@@ -288,7 +290,7 @@ export default function App() {
   return (
     <div className="app">
       <header className="titlebar">
-        <div className="titlebar-drag-region">
+        <div className="titlebar-drag-region" data-tauri-drag-region>
           <span className="brand-dot" />
           <span className="title-text">Rocktier Compressor</span>
         </div>
