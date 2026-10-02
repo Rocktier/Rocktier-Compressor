@@ -201,10 +201,13 @@ function runChecks(id, product, dir) {
     if (isI18nFile(f)) continue; // 字典文件天然含中文
     if (/\.(test|spec)\./.test(f)) return;   // 测试夹具里的中文不是 UI 文案
     const src = read(f).split("\n");
+    let inBlock = false; // /* ... */ 跨行块注释：整段都不算 UI 文案
     src.forEach((line, i) => {
       const t = line.trim();
-      if (t.startsWith("//") || t.startsWith("*") || t.startsWith("/*")) return;
-      if (t.endsWith("*/")) return;                       // 块注释续行
+      if (inBlock) { if (t.includes("*/")) inBlock = false; return; }
+      if (t.startsWith("//")) return;
+      if (t.startsWith("/*")) { if (!t.includes("*/", 2)) inBlock = true; return; }
+      if (t.startsWith("*")) return;
       if (/^\{\s*\/\*/.test(t)) return;                    // JSX 注释
       if (/data-i18n|console\.|^\s*\/\//.test(line)) return;
       if (/^["'`]?[\w.$-]+["'`]?\s*:\s*["'`]/.test(t)) return; // 字典条目
@@ -213,6 +216,11 @@ function runChecks(id, product, dir) {
       // 已自带英文兜底的双语串
       const strs = [...line.matchAll(/["'`]([^"'`]*)["'`]/g)].map((m) => m[1]);
       if (strs.length && strs.every((v) => !/[一-鿿]{2,}/.test(v) || /[A-Za-z]{3,}/.test(v))) return;
+      // 行内已自带另一种语言（t("中文","English") 或 lang==="zh" ? "中文" : "English"）
+      // ——不算漏译：两种语言都在，用户不会看到没翻译的界面。
+      const hasCJK = strs.some((v) => /[一-鿿]{2,}/.test(v));
+      const hasLatin = strs.some((v) => /[A-Za-z]{2,}/.test(v));
+      if (hasCJK && hasLatin) return;
       if (strs.length && strs.every((v) => /^(zh|en|zh-CN|en-US)$/.test(v))) return;
       if (/["'`][^"'`]*[一-鿿]{2,}/.test(line)) { literals++; if (!sample) sample = `${basename(f)}:${i + 1}`; }
     });
