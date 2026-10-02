@@ -31,7 +31,10 @@ func compressDocx(input, profile, quality string, result CompressResult) Compres
 }
 
 // optimizeZip re-zips the OOXML package with aggressive image recompression.
-func optimizeZip(input, output, profile, quality string) error {
+// 用命名返回值让 defer 把 outFile.Close() 的错误并入返回（P0-18）：Close 负责
+// 冲刷文件缓冲，失败意味着输出可能不完整，不能静默丢弃；同时保证中途出错的
+// 路径也会释放文件句柄。
+func optimizeZip(input, output, profile, quality string) (err error) {
 	reader, err := zip.OpenReader(input)
 	if err != nil {
 		return fmt.Errorf("cannot open DOCX as ZIP: %w", err)
@@ -42,7 +45,11 @@ func optimizeZip(input, output, profile, quality string) error {
 	if err != nil {
 		return fmt.Errorf("cannot create output: %w", err)
 	}
-	defer outFile.Close()
+	defer func() {
+		if closeErr := outFile.Close(); err == nil && closeErr != nil {
+			err = fmt.Errorf("close output: %w", closeErr)
+		}
+	}()
 
 	writer := zip.NewWriter(outFile)
 

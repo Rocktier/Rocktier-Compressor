@@ -9,13 +9,9 @@ import (
 	"strings"
 )
 
-// zipRepackage copies a ZIP file (DOCX/XLSX/PPTX) with maximum compression.
-func zipRepackage(input, output string) error {
-	return zipRepackageWithOptions(input, output, "default", "medium")
-}
-
 // zipRepackageWithOptions copies a ZIP with per-format compression options.
-func zipRepackageWithOptions(input, output, profile, quality string) error {
+// 命名返回值 + defer：outFile.Close() 的错误并入返回（P0-18），失败路径也释放句柄。
+func zipRepackageWithOptions(input, output, profile, quality string) (err error) {
 	reader, err := zip.OpenReader(input)
 	if err != nil {
 		return fmt.Errorf("cannot open as ZIP: %w", err)
@@ -26,7 +22,11 @@ func zipRepackageWithOptions(input, output, profile, quality string) error {
 	if err != nil {
 		return fmt.Errorf("cannot create output: %w", err)
 	}
-	defer outFile.Close()
+	defer func() {
+		if closeErr := outFile.Close(); err == nil && closeErr != nil {
+			err = fmt.Errorf("close output: %w", closeErr)
+		}
+	}()
 
 	writer := zip.NewWriter(outFile)
 

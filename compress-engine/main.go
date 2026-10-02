@@ -102,21 +102,26 @@ func cmdCompress(input, profile, quality string, targetBytes int64) CompressResu
 		result.Note = "目标大小暂仅支持图片 / Target size applies to images only"
 	}
 
+	// 输出文件 stat 失败说明结果根本没落盘（磁盘满/杀软拦截等），必须按失败
+	// 上报；否则 CompressedSize 停留在 0，会被当成「已是最优」谎报成功（size=0）。
 	if result.Error == "" {
-		if outInfo, err := os.Stat(result.OutputPath); err == nil {
+		outInfo, err := os.Stat(result.OutputPath)
+		if err != nil {
+			result.Error = fmt.Sprintf("cannot stat output: %v", err)
+		} else {
 			result.CompressedSize = outInfo.Size()
 			if result.OriginalSize > 0 {
 				result.Ratio = float64(result.CompressedSize) / float64(result.OriginalSize)
 			}
-		}
-		// First-principle honesty: never fake a win. If the "compressed"
-		// output is not actually smaller, discard it and report the file as
-		// already optimal (empty OutputPath, ratio 1.0, no error).
-		if result.CompressedSize >= result.OriginalSize {
-			_ = os.Remove(result.OutputPath)
-			result.OutputPath = ""
-			result.CompressedSize = result.OriginalSize
-			result.Ratio = 1.0
+			// First-principle honesty: never fake a win. If the "compressed"
+			// output is not actually smaller, discard it and report the file as
+			// already optimal (empty OutputPath, ratio 1.0, no error).
+			if result.CompressedSize >= result.OriginalSize {
+				_ = os.Remove(result.OutputPath)
+				result.OutputPath = ""
+				result.CompressedSize = result.OriginalSize
+				result.Ratio = 1.0
+			}
 		}
 	}
 

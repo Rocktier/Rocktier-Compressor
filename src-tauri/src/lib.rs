@@ -222,6 +222,29 @@ fn reveal_path(app: tauri::AppHandle, path: String) -> Result<(), String> {
     app.opener().reveal_item_in_dir(&path).map_err(|e| e.to_string())
 }
 
+/// 引擎输出路径，复刻 Go 引擎的 outputFile()（main.go）："base_compressed" + ext。
+fn compressed_output_path(input: &str) -> std::path::PathBuf {
+    let p = Path::new(input);
+    let ext = p
+        .extension()
+        .map(|e| format!(".{}", e.to_string_lossy()))
+        .unwrap_or_default();
+    let mut out = p.with_extension("").into_os_string();
+    out.push("_compressed");
+    out.push(ext);
+    std::path::PathBuf::from(out)
+}
+
+/// 引擎用 os.Create 直接写输出，已有同名文件会被静默覆盖。前端在开始压缩前
+/// 调用本命令，把已存在的输出路径列出来让用户确认。
+#[tauri::command]
+fn check_output_conflicts(paths: Vec<String>) -> Vec<String> {
+    paths
+        .into_iter()
+        .filter(|p| compressed_output_path(p).exists())
+        .collect()
+}
+
 /// Recursively list files under a directory (used by the "Add Folder" menu
 /// action). Uses `walkdir` (already a dependency) so we don't shell out.
 #[tauri::command]
@@ -382,6 +405,7 @@ pub fn run() {
             list_files,
             reveal_path,
             file_size,
+            check_output_conflicts,
             build_menu,
             initial_file,
             force_close,

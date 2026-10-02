@@ -80,6 +80,7 @@ export default function App() {
   const [files, setFiles] = useState<FileItem[]>([]);
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState("");
+  const [dragOver, setDragOver] = useState(false);
 
   // Refs that always hold the latest values, so the once-registered menu /
   // event listeners and the per-file compress loop never read stale state.
@@ -159,6 +160,31 @@ export default function App() {
     if (pending.length === 0) {
       setStatus(t("没有待压缩文件", "No files to compress"));
       return;
+    }
+    // 引擎用 os.Create 直接写输出（base_compressed.ext），会静默覆盖已有文件。
+    // 开始前先问一次：列出冲突输出，用户确认才继续（P0 覆盖确认）。
+    try {
+      const conflicts = await invoke<string[]>("check_output_conflicts", {
+        paths: pending.map((f) => f.path),
+      });
+      if (conflicts.length > 0) {
+        const shown = conflicts
+          .slice(0, 5)
+          .map((c) => basename(c))
+          .join("\n");
+        const more = conflicts.length > 5
+          ? t(`\n…等共 ${conflicts.length} 个文件`, `\n…and ${conflicts.length} files in total`)
+          : "";
+        const ok = window.confirm(
+          t(
+            `以下输出文件已存在，继续将覆盖：\n\n${shown}${more}\n\n确定覆盖？`,
+            `These output files already exist and will be overwritten:\n\n${shown}${more}\n\nOverwrite?`,
+          ),
+        );
+        if (!ok) return;
+      }
+    } catch {
+      /* conflict check is advisory — never block compression on it */
     }
     busyRef.current = true;
     cancelRef.current = false;
@@ -252,8 +278,15 @@ export default function App() {
       );
       un.push(await listen<string>("opened-file", (e) => addPaths([e.payload])));
       un.push(
-        await listen<{ paths: string[] }>("tauri://drag-drop", (e) => addPaths(e.payload.paths)),
+        await listen<{ paths: string[] }>("tauri://drag-drop", (e) => {
+          setDragOver(false);
+          addPaths(e.payload.paths);
+        }),
       );
+      // P0-16 残留：drop 只在松手时触发，拖进来时没有任何反馈。enter/leave
+      // 切换 dropzone 高亮，让「可以松手了」看得见。
+      un.push(await listen("tauri://drag-enter", () => setDragOver(true)));
+      un.push(await listen("tauri://drag-leave", () => setDragOver(false)));
       un.push(
         await listen("app-close-requested", () => {
           const proceed = () => invoke("force_close");
@@ -302,7 +335,7 @@ export default function App() {
 
       {files.length === 0 ? (
         <main className="content">
-          <div className="dropzone" onClick={openAdd}>
+          <div className={"dropzone" + (dragOver ? " dragover" : "")} onClick={openAdd}>
             <div className="dropzone-icon">↓</div>
             <p className="dropzone-title">{t("拖放文件到这里开始压缩", "Drop files here to start compressing")}</p>
             <p className="dropzone-subtitle">

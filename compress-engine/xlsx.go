@@ -10,7 +10,7 @@ import (
 func compressXlsx(input, profile, quality string, result CompressResult) CompressResult {
 	tmpOut := result.OutputPath + ".tmp"
 
-	if err := optimizeXlsxZip(input, tmpOut); err != nil {
+	if err := optimizeXlsxZip(input, tmpOut, profile, quality); err != nil {
 		result.Error = fmt.Sprintf("XLSX compression failed: %v", err)
 		return result
 	}
@@ -26,8 +26,10 @@ func compressXlsx(input, profile, quality string, result CompressResult) Compres
 
 // optimizeXlsxZip re-packages the XLSX ZIP with maximum compression.
 // In production, excelize would be used for formula re-calculation if needed.
-func optimizeXlsxZip(input, output string) error {
-	return zipRepackage(input, output)
+// profile/quality 直接穿透到 zipRepackageWithOptions（驱动内嵌 media 的
+// shrinkMediaData 降采样），不再回退到 default/medium 默认值。
+func optimizeXlsxZip(input, output, profile, quality string) error {
+	return zipRepackageWithOptions(input, output, profile, quality)
 }
 
 func moveFile(src, dst string) error {

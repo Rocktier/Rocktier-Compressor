@@ -69,10 +69,15 @@ body {
   height: 8px;
   border-radius: 50%;
   background: var(--brand);
+  /* 子元素不拦截鼠标事件，否则会打断 data-tauri-drag-region 的窗口拖动 */
+  pointer-events: none;
 }
 .title-text {
   font-weight: 600;
   font-size: 14px;
+  /* 同上：让标题文字区域也能拖动窗口。取舍：标题栏文字不可选中——
+     24ef701 恢复的可选中针对正文区（文件名/错误信息/状态栏），不受影响 */
+  pointer-events: none;
 }
 .lang-toggle {
   display: flex;
@@ -123,6 +128,11 @@ body {
 }
 .dropzone:hover {
   border-color: var(--brand);
+}
+/* 拖拽悬停反馈（tauri://drag-enter / drag-leave 切换） */
+.dropzone.dragover {
+  border-color: var(--brand);
+  background: var(--surface-2);
 }
 .dropzone-icon {
   font-size: 48px;
