@@ -29,7 +29,6 @@ func zipRepackageWithOptions(input, output, profile, quality string) error {
 	defer outFile.Close()
 
 	writer := zip.NewWriter(outFile)
-	defer writer.Close()
 
 	for _, f := range reader.File {
 		rc, err := f.Open()
@@ -64,6 +63,10 @@ func zipRepackageWithOptions(input, output, profile, quality string) error {
 		}
 	}
 
+	// zip.Writer.Close() 写中央目录，失败则文件不可读；必须显式上报（P0-18）
+	if err := writer.Close(); err != nil {
+		return fmt.Errorf("finalize zip: %w", err)
+	}
 	return nil
 }
 

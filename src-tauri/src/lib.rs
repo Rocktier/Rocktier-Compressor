@@ -52,49 +52,56 @@ fn mark_ready(state: tauri::State<Ready>) {
 /// Compress a single file using the native compress engine.
 /// Returns JSON with original size, compressed size, ratio, and output path.
 #[tauri::command]
-fn compress_file(
+async fn compress_file(
     app_handle: tauri::AppHandle,
     path: String,
     profile: String,
     quality: String,
     target_bytes: Option<u64>,
 ) -> Result<serde_json::Value, String> {
-    let exe_dir = app_handle
-        .path()
-        .resource_dir()
-        .map(|p| p.to_path_buf())
-        .or_else(|_| {
-            std::env::current_exe().map(|p| p.parent().unwrap_or(Path::new(".")).to_path_buf())
-        })
-        .map_err(|e| e.to_string())?;
+    // 阻塞调用（等待 Go 引擎子进程退出）移到 blocking 线程，避免冻结整个窗口、
+    // 让页脚「取消」按钮点不到（P0-17）。前端 await invoke 契约保持不变。
+    let result = tauri::async_runtime::spawn_blocking(move || -> Result<serde_json::Value, String> {
+        let exe_dir = app_handle
+            .path()
+            .resource_dir()
+            .map(|p| p.to_path_buf())
+            .or_else(|_| {
+                std::env::current_exe().map(|p| p.parent().unwrap_or(Path::new(".")).to_path_buf())
+            })
+            .map_err(|e| e.to_string())?;
 
-    let engine_path = exe_dir.join(ENGINE_BIN);
-    if !engine_path.exists() {
-        return Err(format!("compress-engine not found at {engine_path:?}"));
-    }
+        let engine_path = exe_dir.join(ENGINE_BIN);
+        if !engine_path.exists() {
+            return Err(format!("compress-engine not found at {engine_path:?}"));
+        }
 
-    let mut cmd = Command::new(&engine_path);
-    cmd.args([
-        "compress",
-        "--input", &path,
-        "--profile", &profile,
-        "--quality", &quality,
-    ]);
-    if let Some(n) = target_bytes.filter(|n| *n > 0) {
-        cmd.arg("--target-bytes").arg(n.to_string());
-    }
-    let output = cmd
-        .output()
-        .map_err(|e| format!("Failed to execute compress engine: {e}"))?;
+        let mut cmd = Command::new(&engine_path);
+        cmd.args([
+            "compress",
+            "--input", &path,
+            "--profile", &profile,
+            "--quality", &quality,
+        ]);
+        if let Some(n) = target_bytes.filter(|n| *n > 0) {
+            cmd.arg("--target-bytes").arg(n.to_string());
+        }
+        let output = cmd
+            .output()
+            .map_err(|e| format!("Failed to execute compress engine: {e}"))?;
 
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(format!("Compress engine failed: {stderr}"));
-    }
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            return Err(format!("Compress engine failed: {stderr}"));
+        }
 
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    let result: serde_json::Value = serde_json::from_str(&stdout)
-        .map_err(|e| format!("Failed to parse engine output: {e}\n{stdout}"))?;
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let result: serde_json::Value = serde_json::from_str(&stdout)
+            .map_err(|e| format!("Failed to parse engine output: {e}\n{stdout}"))?;
+        Ok(result)
+    })
+    .await
+    .map_err(|e| format!("compress task failed: {e}"))??;
     Ok(result)
 }
 
