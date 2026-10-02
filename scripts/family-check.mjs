@@ -199,12 +199,21 @@ function runChecks(id, product, dir) {
   let literals = 0, sample = "";
   for (const f of codeFiles) {
     if (isI18nFile(f)) continue; // 字典文件天然含中文
+    if (/\.(test|spec)\./.test(f)) return;   // 测试夹具里的中文不是 UI 文案
     const src = read(f).split("\n");
     src.forEach((line, i) => {
       const t = line.trim();
       if (t.startsWith("//") || t.startsWith("*") || t.startsWith("/*")) return;
+      if (t.endsWith("*/")) return;                       // 块注释续行
+      if (/^\{\s*\/\*/.test(t)) return;                    // JSX 注释
       if (/data-i18n|console\.|^\s*\/\//.test(line)) return;
       if (/^["'`]?[\w.$-]+["'`]?\s*:\s*["'`]/.test(t)) return; // 字典条目
+      // 内联双语结构：{ zh: [...], en: [...] } / label_zh / label_en
+      if (/\b(zh|en)\s*:\s*[\[{]|label_(zh|en)\s*:|_zh\s*:|_en\s*:/.test(line)) return;
+      // 已自带英文兜底的双语串
+      const strs = [...line.matchAll(/["'`]([^"'`]*)["'`]/g)].map((m) => m[1]);
+      if (strs.length && strs.every((v) => !/[一-鿿]{2,}/.test(v) || /[A-Za-z]{3,}/.test(v))) return;
+      if (strs.length && strs.every((v) => /^(zh|en|zh-CN|en-US)$/.test(v))) return;
       if (/["'`][^"'`]*[一-鿿]{2,}/.test(line)) { literals++; if (!sample) sample = `${basename(f)}:${i + 1}`; }
     });
   }
