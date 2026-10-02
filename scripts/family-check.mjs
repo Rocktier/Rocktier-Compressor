@@ -51,6 +51,13 @@ const LOCAL_DIRS = {
   compressor: "Rocktier-Compressor",
 };
 
+/* ---------- i18n 字典形态差异 ----------
+   OCR: const STRINGS = { zh: {...}, en: {...} }（有真字典，但需显式指定文件）
+   CAD / Compressor: 行内双语（三元 lang==="zh" ? … : … / t("中文","English")），
+   没有独立 en/zh 字典，无法也不必做键对账 —— 如实记为 NA，避免假警。 */
+const I18N_FILE_OVERRIDE = { ocr: "ui/lang.js" };
+const I18N_NO_DICT = new Set(["cad-viewer", "compressor"]);
+
 /* ---------- 小工具 ---------- */
 const walk = (dir, exts, out = [], depth = 0) => {
   if (!existsSync(dir) || depth > 7) return out;
@@ -138,7 +145,10 @@ function runChecks(id, product, dir) {
      注意：各产品字典形态不一——有的一个文件内 {en:{},zh:{}}，有的拆成 en.ts / zh.ts
      两个文件各导出一个对象。两种都要认。 */
   const isI18nFile = (f) => /i18n|lang|locale|translation/i.test(f);
-  const i18nFiles = walkFe([".ts", ".tsx", ".js", ".jsx", ".svelte"]).filter(isI18nFile);
+  const overrideFile = I18N_FILE_OVERRIDE[id] || (/ocr/i.test(id) ? "ui/lang.js" : null);
+  const i18nFiles = overrideFile
+    ? [join(dir, overrideFile)].filter(existsSync)
+    : walkFe([".ts", ".tsx", ".js", ".jsx", ".svelte"]).filter(isI18nFile);
   const keysByLang = { en: new Set(), zh: new Set() };
 
   const collectBlockKeys = (src, startIdx) => {
@@ -149,15 +159,29 @@ function runChecks(id, product, dir) {
     }
     // 键可能带引号（"a.b": '...'）也可能不带（appName: '...'）——两种都要认
     return new Set([
-      ...src.slice(startIdx, i).matchAll(/["'`]?([\w.$-]{2,})["'`]?\s*:\s*(?:["'`]|\[|\{|true|false|-?\d)/g),
+      // 只收叶子键：值为 { 的是嵌套对象名，不是可对账文案键\n      ...src.slice(startIdx, i).matchAll(/["'`]?([\w.$-]{2,})["'`]?\s*:\s*(?:["'`]|\[|\(|true|false|-?\d)/g),
     ].map((x) => x[1]));
   };
+
+  // 形态 B：条目自带双语（Sign：Record<string, { en: string; zh: string }>）。
+  // 这类没有语言块，两种语言与键共置，天然不会漏译 —— 按条目收键即可。
+  for (const f of i18nFiles) {
+    const src = read(f);
+    if (/Record<[^>]*\{\s*en\s*:[\s\S]{0,120}?zh\s*:/.test(src)) {
+      const entries = [...src.matchAll(/(?:^|\n)\s{2,}["'`]?([\w.$-]+)["'`]?\s*:\s*\{\s*en\s*:/g)].map((m) => m[1]);
+      if (entries.length) {
+        for (const k of entries) { keysByLang.en.add(k); keysByLang.zh.add(k); }
+        break;
+      }
+    }
+  }
 
   for (const f of i18nFiles) {
     const src = read(f);
     // (a) 文件内语言块："en": { ... } / en = { ... } —— 大小写不敏感（Journal 写的是 var ZH = {...}）
     for (const lang of ["en", "zh"]) {
-      const re = new RegExp(`["']?${lang}["']?\\s*[:=]\\s*{`, "gi");
+      // 容忍区域码：Journal 的键是 "en-US" / "zh-CN"，不是裸 en / zh
+      const re = new RegExp(`["']?${lang}(?:[-_][A-Za-z]{2,4})?["']?\\s*[:=]\\s*{`, "gi");
       let m;
       while ((m = re.exec(src))) {
         for (const k of collectBlockKeys(src, m.index + m[0].length - 1)) keysByLang[lang].add(k);
@@ -174,7 +198,7 @@ function runChecks(id, product, dir) {
     const fname = basename(f).toLowerCase();
     for (const lang of ["en", "zh"]) {
       if (fname.startsWith(`${lang}.`) || fname.includes(`-${lang}.`) || fname.includes(`.${lang}.`)) {
-        for (const k of src.matchAll(/["'`]?([\w.$-]{2,})["'`]?\s*:\s*(?:["'`]|\[|\{)/g)) {
+        for (const k of src.matchAll(/["'`]?([\w.$-]{2,})["'`]?\s*:\s*(?:["'`]|\[|\()/g)) {
           keysByLang[lang].add(k[1]);
         }
       }
@@ -189,7 +213,12 @@ function runChecks(id, product, dir) {
       bad ? `漏译/多余 ${bad} 处（仅en ${onlyEn.length} / 仅zh ${onlyZh.length}）e.g. ${[...onlyEn, ...onlyZh].slice(0, 5).join(",")}`
           : `en/zh 键齐平 (${E.size})`);
   } else {
-    add(id, "i18n-key-reconciliation", "WARN", `未定位到 en/zh 双语字典（en=${E.size} zh=${Z.size}，可能单语或结构特殊）`);
+    if (I18N_NO_DICT.has(id) || /cad|compressor/i.test(id)) {
+      add(id, "i18n-key-reconciliation", "NA",
+        "行内双语（三元 lang===\"zh\" ? … : … 或 t(\"中文\",\"English\")），无独立 en/zh 字典，不做键对账");
+    } else {
+      add(id, "i18n-key-reconciliation", "WARN", `未定位到 en/zh 双语字典（en=${E.size} zh=${Z.size}，可能单语或结构特殊）`);
+    }
   }
 
   /* 4. no-literal-user-strings：界面文案不得硬编码（启发式：中文裸串）
