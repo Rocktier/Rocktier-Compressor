@@ -1,0 +1,303 @@
+/* Rocktier 家族设计令牌（L0 母版）——构建期拷贝，各产品不得手改。
+   铁律：[data-theme="light"] 必须定义与 :root 完全相同的令牌集。 */
+
+:root,
+[data-theme="dark"] {
+  --bg-primary: #000000;
+  --bg-secondary: #0a0a0a;
+  --bg-elevated: #121212;
+  --bg-card: rgba(255, 255, 255, 0.03);
+  --bg-card-hover: rgba(255, 255, 255, 0.06);
+  --bg-inset: rgba(255, 255, 255, 0.02);
+  --bg-input: rgba(255, 255, 255, 0.04);
+  --border: rgba(255, 255, 255, 0.08);
+  --border-hover: rgba(255, 255, 255, 0.16);
+  --border-strong: rgba(255, 255, 255, 0.28);
+  --text-primary: rgba(255, 255, 255, 0.95);
+  --text-secondary: rgba(255, 255, 255, 0.72);
+  --text-tertiary: rgba(255, 255, 255, 0.58);
+  --accent: #ffffff;
+  --on-accent: #000000;
+  --accent-hover: rgba(255, 255, 255, 0.88);
+  --accent-glow: rgba(255, 255, 255, 0.15);
+  --red: #ff4a3d;
+  --red-strong: #cc3a30;
+  --red-soft: #ff6b5e;
+  --on-brand: #ffffff;
+  --accent-brand: var(--red);
+  --danger: #ff4a3d;
+  --warning: #cc3a30;
+  --success: rgba(48, 209, 88, 0.9);
+  --dot: rgba(255, 255, 255, 0.55);
+  --dot-pattern: radial-gradient(circle, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
+  --dot-size: 20px;
+  --shadow: rgba(0, 0, 0, 0.4);
+  --page-shadow: 0 2px 24px rgba(0, 0, 0, 0.60);
+  --scrollbar: rgba(255, 255, 255, 0.10);
+  --scrollbar-hover: rgba(255, 255, 255, 0.20);
+  --selection: rgba(255, 255, 255, 0.15);
+  --radius-sm: 12px;
+  --radius-md: 20px;
+  --radius-lg: 28px;
+  --radius-pill: 999px;
+  --fs-2xs: 10px;
+  --fs-xs: 11px;
+  --fs-sm: 12px;
+  --fs-md: 13px;
+  --fs-lg: 14px;
+  --fs-xl: 22px;
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 20px;
+  --sp-6: 24px;
+  --sp-8: 32px;
+  --font: "Geist", -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI",
+    Roboto, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", Helvetica, Arial,
+    sans-serif;
+  --font-mono: "Geist Mono", "SF Mono", "JetBrains Mono", "Fira Code", ui-monospace,
+    monospace;
+  --ease: cubic-bezier(0.25, 0.1, 0.25, 1);
+  --dur-hover: 150ms;
+  --dur-state: 200ms;
+  --dur-enter: 300ms;
+  --titlebar-h: 44px;
+  --toolbar-h: 44px;
+  --statusbar-h: 28px;
+  --rail-w: 56px;
+  --rail-w-open: 208px;
+  --accent-muted: rgba(255, 255, 255, 0.08);
+  --dur-fast: 0.15s;
+  --font-sans: "Geist", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, "PingFang SC", "Hiragino Sans GB",
+    "Microsoft YaHei", sans-serif;
+  --text3: rgba(255, 255, 255, 0.5);
+  --mono: "Geist Mono", "SF Mono", "JetBrains Mono", "Fira Code", ui-monospace, Menlo, monospace;
+  --dur-normal: 0.25s;
+  --text: rgba(255, 255, 255, 0.95);
+  --text-muted: rgba(255, 255, 255, 0.30);
+  --brand: #ff4a3d;
+  --text2: rgba(255, 255, 255, 0.72);
+  --border-mid: rgba(255, 255, 255, 0.10);
+  --radius-xs: 3px;
+  --card: rgba(255, 255, 255, 0.03);
+  --bg-floating: #141414;
+  --bg-surface: #0a0a0a;
+  --bg: #000000;
+  --bg2: #f5f5f5;
+  --code-comment: #7d8590;
+  --code-keyword: #ff7b72;
+  --code-function: #d2a8ff;
+  --code-type: #ffa657;
+  --card-hover: rgba(255, 255, 255, 0.06);
+  --surface: #141414;
+  --glow-md: 0 0 20px rgba(255, 255, 255, 0.08);
+  --fs-base: 13px;
+  --head-bg: rgba(0, 0, 0, 0.8);
+  --font-serif: "New York", "New York Small", Georgia, "Times New Roman",
+    "Songti SC", "Source Han Serif SC", "Noto Serif CJK SC",
+    "Microsoft YaHei UI", "Microsoft YaHei", "PingFang SC", serif;
+  --code-string: #a5d6ff;
+  --code-number: #79c0ff;
+  --code-variable: #79c0ff;
+  --code-tag: #7ee787;
+  --dur-slow: 0.4s;
+  --focus-ring: rgba(255, 255, 255, 0.65);
+  --radius: 12px;
+  --surface-2: #1c1c1c;
+  --warn: rgba(255, 176, 46, 0.9);
+  --sidebar-w: 260px;
+  --accent-warn: #d98a00;
+  --dim-text: rgba(255, 255, 255, 0.30);
+  --scrollbar-thumb: rgba(0, 0, 0, 0.18);
+  --brand-dot: #181818;
+  --focus-glow: rgba(255, 255, 255, 0.14);
+  --brand-hover: #cc3a30;
+}
+
+[data-theme="light"] {
+  --bg-primary: #ffffff;
+  --bg-secondary: #f5f5f5;
+  --bg-elevated: #ffffff;
+  --bg-card: rgba(0, 0, 0, 0.03);
+  --bg-card-hover: rgba(0, 0, 0, 0.06);
+  --bg-inset: rgba(0, 0, 0, 0.02);
+  --bg-input: rgba(0, 0, 0, 0.04);
+  --border: rgba(0, 0, 0, 0.08);
+  --border-hover: rgba(0, 0, 0, 0.16);
+  --border-strong: rgba(0, 0, 0, 0.28);
+  --text-primary: rgba(0, 0, 0, 0.92);
+  --text-secondary: rgba(0, 0, 0, 0.64);
+  --text-tertiary: rgba(0, 0, 0, 0.60);
+  --accent: #000000;
+  --on-accent: #ffffff;
+  --accent-hover: rgba(0, 0, 0, 0.88);
+  --accent-glow: rgba(0, 0, 0, 0.12);
+  --red: #e64537;
+  --red-strong: #c0392b;
+  --red-soft: #ff6b5e;
+  --on-brand: #ffffff;
+  --accent-brand: var(--red);
+  --danger: #e64537;
+  --warning: #c0392b;
+  --success: rgba(34, 178, 77, 0.9);
+  --dot: rgba(0, 0, 0, 0.55);
+  --dot-pattern: radial-gradient(circle, rgba(0, 0, 0, 0.05) 1px, transparent 1px);
+  --dot-size: 20px;
+  --shadow: rgba(0, 0, 0, 0.08);
+  --page-shadow: 0 2px 20px rgba(0, 0, 0, 0.16);
+  --scrollbar: rgba(0, 0, 0, 0.15);
+  --scrollbar-hover: rgba(0, 0, 0, 0.25);
+  --selection: rgba(0, 0, 0, 0.12);
+  --radius-sm: 12px;
+  --radius-md: 20px;
+  --radius-lg: 28px;
+  --radius-pill: 999px;
+  --fs-2xs: 10px;
+  --fs-xs: 11px;
+  --fs-sm: 12px;
+  --fs-md: 13px;
+  --fs-lg: 14px;
+  --fs-xl: 22px;
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 20px;
+  --sp-6: 24px;
+  --sp-8: 32px;
+  --font: "Geist", -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI",
+    Roboto, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", Helvetica, Arial,
+    sans-serif;
+  --font-mono: "Geist Mono", "SF Mono", "JetBrains Mono", "Fira Code", ui-monospace,
+    monospace;
+  --ease: cubic-bezier(0.25, 0.1, 0.25, 1);
+  --dur-hover: 150ms;
+  --dur-state: 200ms;
+  --dur-enter: 300ms;
+  --titlebar-h: 44px;
+  --toolbar-h: 44px;
+  --statusbar-h: 28px;
+  --rail-w: 56px;
+  --rail-w-open: 208px;
+  --accent-muted: rgba(255, 255, 255, 0.08);
+  --dur-fast: 0.15s;
+  --font-sans: "Geist", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, "PingFang SC", "Hiragino Sans GB",
+    "Microsoft YaHei", sans-serif;
+  --text3: rgba(0, 0, 0, 0.58);
+  --mono: "Geist Mono", "SF Mono", "JetBrains Mono", "Fira Code", ui-monospace, Menlo, monospace;
+  --dur-normal: 0.25s;
+  --text: rgba(0, 0, 0, 0.95);
+  --text-muted: rgba(255, 255, 255, 0.30);
+  --brand: #ff4a3d;
+  --text2: rgba(0, 0, 0, 0.72);
+  --border-mid: rgba(255, 255, 255, 0.10);
+  --radius-xs: 3px;
+  --card: rgba(0, 0, 0, 0.03);
+  --bg-floating: #141414;
+  --bg-surface: #0a0a0a;
+  --bg: #ffffff;
+  --bg2: #f5f5f5;
+  --code-comment: #7d8590;
+  --code-keyword: #ff7b72;
+  --code-function: #d2a8ff;
+  --code-type: #ffa657;
+  --card-hover: rgba(0, 0, 0, 0.06);
+  --surface: #141414;
+  --glow-md: 0 0 20px rgba(255, 255, 255, 0.08);
+  --fs-base: 13px;
+  --head-bg: rgba(255, 255, 255, 0.8);
+  --font-serif: "New York", "New York Small", Georgia, "Times New Roman",
+    "Songti SC", "Source Han Serif SC", "Noto Serif CJK SC",
+    "Microsoft YaHei UI", "Microsoft YaHei", "PingFang SC", serif;
+  --code-string: #a5d6ff;
+  --code-number: #79c0ff;
+  --code-variable: #79c0ff;
+  --code-tag: #7ee787;
+  --dur-slow: 0.4s;
+  --focus-ring: rgba(0, 0, 0, 0.45);
+  --radius: 12px;
+  --surface-2: #1c1c1c;
+  --warn: rgba(255, 176, 46, 0.9);
+  --sidebar-w: 260px;
+  --accent-warn: #d98a00;
+  --dim-text: rgba(255, 255, 255, 0.30);
+  --scrollbar-thumb: rgba(0, 0, 0, 0.18);
+  --brand-dot: #181818;
+  --focus-glow: rgba(0, 0, 0, 0.12);
+  --brand-hover: #cc3a30;
+}
+
+*::after {
+  transition:
+    background-color var(--dur-state) var(--ease),
+    border-color var(--dur-state) var(--ease),
+    color var(--dur-state) var(--ease),
+    box-shadow var(--dur-state) var(--ease),
+    transform var(--dur-hover) var(--ease);
+}
+
+/* 数字、路径、进度、文件大小一律等宽对齐 */
+.num,
+.status-bar,
+.file-path,
+.progress-value {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+/* 键盘焦点：全局可见，鼠标点击不显示 */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+:focus:not(:focus-visible) {
+  outline: none;
+}
+
+/* 尊重系统减弱动态。用 0.01ms 而非 none —— 保留 transitionend，
+   否则依赖动画结束回调的进度逻辑会卡死。 */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ── 品牌红点：呼吸动画（激活 / 进行中）───────────────────────────────── */
+
+@keyframes dotpulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.4;
+  }
+}
+
+.dot-live {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--red);
+  animation: dotpulse 3s var(--ease) infinite;
+  flex: none;
+}
+
+/* 红点不得是状态的唯一编码 —— 必须同时有形状、文案或描边变化。
+   详见 v2 规范 §9 状态编码表。 */
+.dot-idle {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--border-strong);
+  flex: none;
+}

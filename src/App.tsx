@@ -68,15 +68,15 @@ const PROFILE_I18N: Record<string, { zh: [string, string]; en: [string, string] 
 
 export default function App() {
   const [lang, setLang] = useState<Lang>(() => {
-    const saved = localStorage.getItem("co.lang");
+    const saved = localStorage.getItem("rocktier.lang");
     return saved === "zh" || saved === "en" ? (saved as Lang) : "en"; // 家族规范：默认英文，不跟随系统
   });
   const [profiles, setProfiles] = useState<Profile[]>([]);
-  const [profile, setProfile] = useState<string>(() => localStorage.getItem("co.profile") || "default");
+  const [profile, setProfile] = useState<string>(() => localStorage.getItem("rocktier.profile") || "default");
   const [quality, setQuality] = useState<"low" | "medium" | "high">(
-    () => (localStorage.getItem("co.quality") as "low" | "medium" | "high") || "medium",
+    () => (localStorage.getItem("rocktier.quality") as "low" | "medium" | "high") || "medium",
   );
-  const [target, setTarget] = useState<number>(() => Number(localStorage.getItem("co.target") || 0));
+  const [target, setTarget] = useState<number>(() => Number(localStorage.getItem("rocktier.target") || 0));
   const [files, setFiles] = useState<FileItem[]>([]);
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState("");
@@ -305,7 +305,7 @@ export default function App() {
 
   // Language switch → persist + rebuild native menu (family standard).
   useEffect(() => {
-    localStorage.setItem("co.lang", lang);
+    localStorage.setItem("rocktier.lang", lang);
     invoke("build_menu", { lang }).catch(() => {});
     document.title = "Rocktier Compressor";
     // 无障碍底线：屏幕阅读器要用对应语言的语音引擎朗读
@@ -313,9 +313,9 @@ export default function App() {
   }, [lang]);
 
   // Settings persist across launches.
-  useEffect(() => { localStorage.setItem("co.profile", profile); }, [profile]);
-  useEffect(() => { localStorage.setItem("co.quality", quality); }, [quality]);
-  useEffect(() => { localStorage.setItem("co.target", String(target)); }, [target]);
+  useEffect(() => { localStorage.setItem("rocktier.profile", profile); }, [profile]);
+  useEffect(() => { localStorage.setItem("rocktier.quality", quality); }, [quality]);
+  useEffect(() => { localStorage.setItem("rocktier.target", String(target)); }, [target]);
 
   const pendingCount = files.filter((f) => f.status !== "done").length;
   const selProfile = profiles.find((p) => p.name === profile);
