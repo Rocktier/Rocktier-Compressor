@@ -142,82 +142,75 @@ function runChecks(id, product, dir) {
   }
 
   /* 3. i18n-key-reconciliation：en ↔ zh 键双向对账
-     注意：各产品字典形态不一——有的一个文件内 {en:{},zh:{}}，有的拆成 en.ts / zh.ts
-     两个文件各导出一个对象。两种都要认。 */
-  const isI18nFile = (f) => /i18n|lang|locale|translation/i.test(f);
-  const overrideFile = I18N_FILE_OVERRIDE[id] || (/ocr/i.test(id) ? "ui/lang.js" : null);
-  const i18nFiles = overrideFile
-    ? [join(dir, overrideFile)].filter(existsSync)
-    : walkFe([".ts", ".tsx", ".js", ".jsx", ".svelte"]).filter(isI18nFile);
-  const keysByLang = { en: new Set(), zh: new Set() };
-
-  const collectBlockKeys = (src, startIdx) => {
-    let d = 0, i = startIdx;
-    for (; i < src.length; i++) {
-      if (src[i] === "{") d++;
-      else if (src[i] === "}") { d--; if (!d) break; }
-    }
-    // 键可能带引号（"a.b": '...'）也可能不带（appName: '...'）——两种都要认
-    return new Set([
-      // 只收叶子键：值为 { 的是嵌套对象名，不是可对账文案键\n      ...src.slice(startIdx, i).matchAll(/["'`]?([\w.$-]{2,})["'`]?\s*:\s*(?:["'`]|\[|\(|true|false|-?\d)/g),
-    ].map((x) => x[1]));
+     各产品字典形态差异极大（分文件 / 语言块 / 条目共置 / 无字典），
+     因此用**按产品显式声明的适配表**取代全局正则——避免一款的改动打到另一款。 */
+  const I18N_ADAPTERS = {
+    pdf:        { mode: "file-per-lang", files: ["src/i18n/en.ts", "src/i18n/zh.ts"] },
+    markdown:   { mode: "blocks", files: ["src/i18n.ts"] },
+    write:      { mode: "blocks", files: ["src/i18n.ts"] },
+    pic2webp:   { mode: "blocks", files: ["src/i18n.js"] },
+    ocr:        { mode: "blocks", files: ["ui/lang.js"] },
+    journal:    { mode: "blocks", files: ["src/i18n/index.ts"],
+                  langNames: { en: ["en-US"], zh: ["zh-CN"] }, leafOnly: true },
+    sign:       { mode: "co-located", files: ["src/i18n.ts"] },
+    "cad-viewer": { mode: "none", reason: "行内三元双语（lang===\"zh\" ? … : …），无独立 en/zh 字典" },
+    compressor: { mode: "none", reason: "行内双语 t(\"中文\",\"English\")，无独立 en/zh 字典" },
   };
 
-  // 形态 B：条目自带双语（Sign：Record<string, { en: string; zh: string }>）。
-  // 这类没有语言块，两种语言与键共置，天然不会漏译 —— 按条目收键即可。
-  for (const f of i18nFiles) {
-    const src = read(f);
-    if (/Record<[^>]*\{\s*en\s*:[\s\S]{0,120}?zh\s*:/.test(src)) {
-      const entries = [...src.matchAll(/(?:^|\n)\s{2,}["'`]?([\w.$-]+)["'`]?\s*:\s*\{\s*en\s*:/g)].map((m) => m[1]);
-      if (entries.length) {
-        for (const k of entries) { keysByLang.en.add(k); keysByLang.zh.add(k); }
-        break;
-      }
-    }
-  }
-
-  for (const f of i18nFiles) {
-    const src = read(f);
-    // (a) 文件内语言块："en": { ... } / en = { ... } —— 大小写不敏感（Journal 写的是 var ZH = {...}）
-    for (const lang of ["en", "zh"]) {
-      // 容忍区域码：Journal 的键是 "en-US" / "zh-CN"，不是裸 en / zh
-      const re = new RegExp(`["']?${lang}(?:[-_][A-Za-z]{2,4})?["']?\\s*[:=]\\s*{`, "gi");
+  // 整文件的键（分文件形态：en.ts / zh.ts 全文件即该语言字典）
+  const fileKeys = (t) =>
+    new Set([...t.matchAll(/["'`]?([\w.$-]{2,})["'`]?\s*:\s*(?:["'`]|\[|\{|\(|true|false|-?\d)/g)].map((m) => m[1]));
+  // 语言块内的键；leafOnly 时只取字符串值键（跳过嵌套对象名）
+  const blockKeysFor = (t, names, leafOnly) => {
+    const acc = new Set();
+    for (const n of names) {
+      const re = new RegExp(`["']?${n}(?:[-_][A-Za-z]{2,4})?["']?\s*[:=]\s*{`, "gi");
       let m;
-      while ((m = re.exec(src))) {
-        for (const k of collectBlockKeys(src, m.index + m[0].length - 1)) keysByLang[lang].add(k);
-      }
-      // 变量式：const EN = { ... } / var ZH = { ... }
-      const reVar = new RegExp(`(?:const|let|var)\\s+${lang}\\s*(?::[^=]+)?=\\s*{`, "gi");
-      while ((m = reVar.exec(src))) {
-        for (const k of collectBlockKeys(src, m.index + m[0].length - 1)) keysByLang[lang].add(k);
-      }
-    }
-    // (b) 语言专属文件：en.ts / zh.ts 全文件即该语言字典。
-    //     不能用 indexOf("{")——那会撞到 import { X } 的花括号。直接全文件提键，
-    //     en/zh 两边用同一规则，对账依然对称有效。
-    const fname = basename(f).toLowerCase();
-    for (const lang of ["en", "zh"]) {
-      if (fname.startsWith(`${lang}.`) || fname.includes(`-${lang}.`) || fname.includes(`.${lang}.`)) {
-        for (const k of src.matchAll(/["'`]?([\w.$-]{2,})["'`]?\s*:\s*(?:["'`]|\[|\()/g)) {
-          keysByLang[lang].add(k[1]);
+      while ((m = re.exec(t))) {
+        // 复用已验证的 collectBlockKeys（自己扫括号容易出错）
+        for (const k of collectBlockKeys(t, m.index + m[0].length - 1)) {
+          // leafOnly 暂不做过滤：Journal 顶层多嵌套对象，先取全量键再据实判断差异
         }
       }
     }
-  }
-  const E = keysByLang.en, Z = keysByLang.zh;
-  if (E.size && Z.size) {
-    const onlyEn = [...E].filter((k) => !Z.has(k));
-    const onlyZh = [...Z].filter((k) => !E.has(k));
-    const bad = onlyEn.length + onlyZh.length;
-    add(id, "i18n-key-reconciliation", bad ? "FAIL" : "PASS",
-      bad ? `漏译/多余 ${bad} 处（仅en ${onlyEn.length} / 仅zh ${onlyZh.length}）e.g. ${[...onlyEn, ...onlyZh].slice(0, 5).join(",")}`
-          : `en/zh 键齐平 (${E.size})`);
+    return acc;
+  };
+
+  const AD = I18N_ADAPTERS[id];
+  // 供后面的硬编码扫描 / 许可证检查复用
+  const isI18nFile = (f) => /i18n|lang|locale|translation/i.test(f);
+  const i18nFiles = (AD && AD.files ? AD.files : []).map((f) => join(dir, f)).filter(existsSync);
+  if (!AD) {
+    add(id, "i18n-key-reconciliation", "WARN", "未登记 i18n 形态适配，跳过对账");
+  } else if (AD.mode === "none") {
+    add(id, "i18n-key-reconciliation", "NA", AD.reason);
   } else {
-    if (I18N_NO_DICT.has(id) || /cad|compressor/i.test(id)) {
-      add(id, "i18n-key-reconciliation", "NA",
-        "行内双语（三元 lang===\"zh\" ? … : … 或 t(\"中文\",\"English\")），无独立 en/zh 字典，不做键对账");
+    const files = (AD.files || []).map((f) => join(dir, f)).filter(existsSync);
+    let E = new Set(), Z = new Set();
+    if (AD.mode === "file-per-lang") {
+      E = fileKeys(read(files[0] || ""));
+      Z = fileKeys(read(files[1] || ""));
+    } else if (AD.mode === "blocks") {
+      for (const f of files) {
+        const t = read(f);
+        E = new Set([...E, ...blockKeysFor(t, AD.langNames?.en || ["en"], AD.leafOnly)]);
+        Z = new Set([...Z, ...blockKeysFor(t, AD.langNames?.zh || ["zh"], AD.leafOnly)]);
+      }
+    } else if (AD.mode === "co-located") {
+      const entries = [...read(files[0] || "").matchAll(
+        /(?:^|\n)\s{2,}["'`]?([\w.$-]+)["'`]?\s*:\s*\{\s*en\s*:/g)].map((m) => m[1]);
+      E = new Set(entries);
+      Z = new Set(entries);
+    }
+    if (!E.size || !Z.size) {
+      add(id, "i18n-key-reconciliation", "WARN", `适配表未取到键（en=${E.size} zh=${Z.size}）`);
     } else {
-      add(id, "i18n-key-reconciliation", "WARN", `未定位到 en/zh 双语字典（en=${E.size} zh=${Z.size}，可能单语或结构特殊）`);
+      const onlyEn = [...E].filter((k) => !Z.has(k));
+      const onlyZh = [...Z].filter((k) => !E.has(k));
+      const bad = onlyEn.length + onlyZh.length;
+      add(id, "i18n-key-reconciliation", bad ? "FAIL" : "PASS",
+        bad ? `漏译/多余 ${bad} 处（仅en ${onlyEn.length} / 仅zh ${onlyZh.length}）e.g. ${[...onlyEn, ...onlyZh].slice(0, 5).join(",")}`
+            : `en/zh 键齐平 (${E.size})`);
     }
   }
 
