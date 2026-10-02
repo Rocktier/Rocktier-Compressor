@@ -252,7 +252,7 @@ export default function App() {
       );
       un.push(await listen<string>("opened-file", (e) => addPaths([e.payload])));
       un.push(
-        await listen<{ paths: string[] }>("drag-drop", (e) => addPaths(e.payload.paths)),
+        await listen<{ paths: string[] }>("tauri://drag-drop", (e) => addPaths(e.payload.paths)),
       );
       un.push(
         await listen("app-close-requested", () => {
