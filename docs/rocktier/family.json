@@ -1,19 +1,26 @@
 {
   "$comment": "Rocktier 家族决策表 v3 — 机器可读。CI (npm run family:check) 读本文件。方法论与理由见 docs/rocktier/DECISIONS.md",
-  "$intake_note": "2026-10-02 晚自 Windows 机传入入库，已按家族最新拍板对账（明细见 DECISIONS.md §8）：①SQ 码保留（删则锁死 PDF 在售激活）；②Compressor 已于 10-01 收编为第 9 款（撤销砍除提案，v0.1.2 五包已发）；③Write identifier 裁定为已上架例外；④『跟随系统语言』『全局 theme 键』两项待拍板；⑤SQ→PD 授权码改名已执行（依据：用户确认两渠道均无成交）。",
+  "$intake_note": "2026-10-02 晚自 Windows 机传入入库，已按家族最新拍板对账（明细见 DECISIONS.md §8）：①SQ 码保留（删则锁死 PDF 在售激活）；②Compressor 已于 10-01 收编为第 9 款（撤销砍除提案，v0.1.2 五包已发）；③Write identifier 裁定为已上架例外；④『跟随系统语言』『全局 theme 键』两项待拍板。",
   "specVersion": "3.0",
   "tokensFile": "docs/rocktier/tokens.css",
-  "contractVersion": "2026-10-02",
-
+  "contractVersion": "2026-10-03",
   "brand": {
     "spelling": "Rocktier",
-    "forbiddenSpellings": ["ROCKTIER", "RockTIER", "rocktier", "RockTier"],
+    "forbiddenSpellings": [
+      "ROCKTIER",
+      "RockTIER",
+      "rocktier",
+      "RockTier"
+    ],
     "namingRule": "Rocktier + 一个体现功能的单词，首字母大写",
     "productNameStaysEnglish": true,
     "slogan": "Fast, private, built to last",
-    "pillars": ["Performance", "Privacy", "Durability"]
+    "pillars": [
+      "Performance",
+      "Privacy",
+      "Durability"
+    ]
   },
-
   "globalRules": {
     "storageKeyNamespace": "rocktier.",
     "langStorageKey": "rocktier.lang",
@@ -23,34 +30,59 @@
     "followSystemTheme": true,
     "defaultTheme": "dark",
     "$pendingDecision": "followSystemLocale=true 与 themeStorageKey=rocktier.theme（全局共享键）为 v3 初稿提议：前者与家族现行『默认英文不跟随系统』冲突（PDF/Pic2Webp/Journal 等已实现），后者与已上线的产品作用域键 rocktier.journal.theme 冲突（全局键会跨应用同步主题，正是撞键教训的镜像）。两项均待用户拍板，拍板前各产品维持现状。",
-    "allowedLocales": ["en", "zh"],
-    "extendedLocales": ["en", "zh", "ja", "ko", "de", "es", "pt"],
+    "allowedLocales": [
+      "en",
+      "zh"
+    ],
+    "extendedLocales": [
+      "en",
+      "zh",
+      "ja",
+      "ko",
+      "de",
+      "es",
+      "pt"
+    ],
     "shellDefaults": "S"
   },
-
   "$sharedBase_comment": "共享底座分层。L0/L1/L2 是新产品开工的强制前置；L3-L6 按需。详见 DECISIONS.md §3",
   "sharedBase": {
     "L0_tokens": {
       "kind": "css",
       "source": "docs/rocktier/tokens.css",
       "distribution": "构建期拷贝（各产品 src/styles/tokens.css 为生成物，不得手改）",
-      "consumers": ["全部 9 款"],
+      "consumers": [
+        "全部 9 款"
+      ],
       "evidence": "现有令牌漂移：--dot 有 5 个值；--bg-secondary 浅色档 3 个值；--accent-brand 四家全缺",
       "status": "ready"
     },
     "L1_fonts": {
       "kind": "binary-assets",
       "source": "docs/rocktier/fonts/",
-      "files": ["Geist-Variable.woff2", "GeistMono-Variable.woff2", "OFL.txt"],
+      "files": [
+        "Geist-Variable.woff2",
+        "GeistMono-Variable.woff2",
+        "OFL.txt"
+      ],
       "bytesSavedPerProduct": 141020,
-      "consumers": ["全部 9 款（字体去重待办：10 份 md5 相同副本）"],
+      "consumers": [
+        "全部 9 款（字体去重待办：10 份 md5 相同副本）"
+      ],
       "distribution": "构建期拷贝到各产品 src/fonts/",
       "note": "OFL.txt 必须随字体一同分发（SIL OFL 合规）。9/29 铺开后 9 款中仅 Compressor 仍缺 OFL.txt，且其 THIRD-PARTY-NOTICES.md 引用了不存在的路径",
       "status": "ready"
     },
     "L2_i18n": {
       "kind": "ts",
-      "exports": ["LanguageProvider", "useI18n", "useT", "translate", "detectLocale", "interpolate"],
+      "exports": [
+        "LanguageProvider",
+        "useI18n",
+        "useT",
+        "translate",
+        "detectLocale",
+        "interpolate"
+      ],
       "rules": [
         "唯一实现，禁止各产品自行实现",
         "切换语言必须重渲染全部界面，含弹窗/Toast/状态栏/原生菜单",
@@ -61,12 +93,25 @@
         "切换时调用 build_menu(lang) 重建原生菜单"
       ],
       "evidence": "实测 8 产品 7 套键命名；4 种互斥检测策略；Sign 与 Journal 撞键 rj-theme；OCR 从不设 html lang；Sign 插值无 g",
-      "consumers": ["MD","Write","PDF","Journal","CAD","Sign","OCR","Pic2Webp","Compressor"],
+      "consumers": [
+        "MD",
+        "Write",
+        "PDF",
+        "Journal",
+        "CAD",
+        "Sign",
+        "OCR",
+        "Pic2Webp",
+        "Compressor"
+      ],
       "status": "spec-ready"
     },
     "L3_theme": {
       "kind": "ts",
-      "exports": ["ThemeProvider", "useTheme"],
+      "exports": [
+        "ThemeProvider",
+        "useTheme"
+      ],
       "rules": [
         "唯一实现，跟随系统 + 手动覆盖",
         "首帧防闪烁：index.html 内联脚本先落 data-theme，React 挂载前生效",
@@ -74,55 +119,122 @@
         "存储键必须 rocktier.theme"
       ],
       "evidence": "MD/Write/Journal 三份 useTheme 近乎重复（1806/1809/2259 B）；Sign 浅色主题漏 5 个令牌致白底白滚动条",
-      "consumers": ["全部 9 款"],
+      "consumers": [
+        "全部 9 款"
+      ],
       "status": "spec-ready"
     },
     "L4_markdown": {
       "kind": "ts",
-      "exports": ["parseMarkdown", "renderMarkdown", "htmlToMarkdown", "extractHeadings", "searchHighlight", "countWords"],
-      "files": ["markdown.ts", "htmlToMarkdown.ts", "markdown.css", "katex-woff2.css"],
+      "exports": [
+        "parseMarkdown",
+        "renderMarkdown",
+        "htmlToMarkdown",
+        "extractHeadings",
+        "searchHighlight",
+        "countWords"
+      ],
+      "files": [
+        "markdown.ts",
+        "htmlToMarkdown.ts",
+        "markdown.css",
+        "katex-woff2.css"
+      ],
       "zeroRiskEvidence": "markdown.ts 12545 B 与 htmlToMarkdown.ts 4579 B 在 MD 与 Write 之间 MD5 完全一致（fork 产物）",
-      "consumers": ["Markdown","Write"],
+      "consumers": [
+        "Markdown",
+        "Write"
+      ],
       "notes": "抽包零风险：两文件逐字节相同。katex-woff2.css 两边差异大（22675 vs 7330），需先定以哪边为准",
       "status": "extractable-now"
     },
     "L5_menu": {
       "kind": "rust",
-      "exports": ["build_menu"],
+      "exports": [
+        "build_menu"
+      ],
       "rule": "唯一实现；按 UI 语言重建原生菜单；family.json 为菜单项单一来源",
       "evidence": "menu.rs 重复 4 处：Journal 8130 B / OCR 5044 B / Pic2Webp 4572 B / CAD 3633 B",
-      "consumers": ["MD","Write","PDF","Journal","CAD","Sign","OCR","Pic2Webp","Compressor"],
+      "consumers": [
+        "MD",
+        "Write",
+        "PDF",
+        "Journal",
+        "CAD",
+        "Sign",
+        "OCR",
+        "Pic2Webp",
+        "Compressor"
+      ],
       "status": "spec-ready"
     },
     "L6_license": {
       "kind": "rust",
-      "exports": ["verify_receipt", "read_valid_receipt", "status_from", "allows_write"],
+      "exports": [
+        "verify_receipt",
+        "read_valid_receipt",
+        "status_from",
+        "allows_write"
+      ],
       "design": "Ed25519 回执，应用内嵌公钥离线验签",
       "rules": [
         "唯一实现，5+ 产品共用同一套校验",
         "ACCEPTED_PRODUCTS 从 family.json 读取，禁止硬编码",
-        "SQ→PD 码改名（2026-10-03 用户拍板）：用户确认 MS Store 与官网直售均无成交，故不存在存量回执需继续接受。应用 license.rs 与官网 _shared.js 已同批改为 PD"
+        "SQ 码保留：它是 PDF 唯一在售单品码（官网价格表映射 SQ），删除会锁死所有新买家激活——2026-10-02 复核裁定，只改注释不改码"
       ],
-      "evidence": "2026-10-02 审计发现 PDF 的 ACCEPTED_PRODUCTS=[\"SQ\",\"FL\"] 中 SQ 为已下架 Squeeze 的遗留码；2026-10-03 已改名 PD 并同批更新官网价格表",
+      "evidence": "现仅 PDF 有 license.rs；ACCEPTED_PRODUCTS=[\"SQ\",\"FL\"] 中 SQ 是已下架的 Squeeze",
       "status": "extractable-now",
       "priority": 1,
       "rationale": "唯一变现闸门，抽完 5 个产品立刻可收费"
     }
   },
-
   "shellTiers": {
-    "S": { "maxTools": 5, "layout": "toolbar", "commandPalette": false, "rail": false },
-    "M": { "maxTools": 12, "layout": "rail", "commandPalette": false, "rail": true },
-    "L": { "maxTools": null, "layout": "rail", "commandPalette": true, "rail": true, "maxRailItems": 7 }
+    "S": {
+      "maxTools": 5,
+      "layout": "toolbar",
+      "commandPalette": false,
+      "rail": false
+    },
+    "M": {
+      "maxTools": 12,
+      "layout": "rail",
+      "commandPalette": false,
+      "rail": true
+    },
+    "L": {
+      "maxTools": null,
+      "layout": "rail",
+      "commandPalette": true,
+      "rail": true,
+      "maxRailItems": 7
+    }
   },
-
   "toolCategories": {
-    "convert": { "placement": "rail", "pattern": "modal", "labelRequired": true, "confirm": true },
-    "edit":    { "placement": "rail", "pattern": "inline", "labelRequired": false, "confirm": false },
-    "secure":  { "placement": "rail", "pattern": "modal", "labelRequired": true, "confirm": true },
-    "view":    { "placement": "toolbar", "pattern": "toggle", "labelRequired": false, "confirm": false }
+    "convert": {
+      "placement": "rail",
+      "pattern": "modal",
+      "labelRequired": true,
+      "confirm": true
+    },
+    "edit": {
+      "placement": "rail",
+      "pattern": "inline",
+      "labelRequired": false,
+      "confirm": false
+    },
+    "secure": {
+      "placement": "rail",
+      "pattern": "modal",
+      "labelRequired": true,
+      "confirm": true
+    },
+    "view": {
+      "placement": "toolbar",
+      "pattern": "toggle",
+      "labelRequired": false,
+      "confirm": false
+    }
   },
-
   "$methodology_comment": "功能归属判定：先问『这个能力的服务对象是谁』，再问『它和宿主产品的用户是不是同一个人』。四条硬规则见 DECISIONS.md §2",
   "featureOwnership": [
     {
@@ -194,36 +306,266 @@
       "note": "Office 格式本质是 ZIP+XML，里面就是普通 PNG/JPEG，用同一套 mozjpeg/libwebp 即可"
     }
   ],
-
   "products": [
-    { "id": "pdf", "displayName": "Rocktier PDF", "repo": "Rocktier/Rocktier-PDF", "identifier": "Rocktier.RocktierPDF", "stack": "Tauri2+React", "shell": "L", "tools": 20, "license": "MIT", "bundled": ["pdfium(BSD-3)","qpdf(Apache-2.0)","mozjpeg(BSD-3)"], "pricing": { "store": 4.99, "direct": 9.99 }, "status": "v1.0.20-released; store-submitted", "base": ["L0","L1","L2","L3","L5","L6"] },
-    { "id": "markdown", "displayName": "Rocktier Markdown", "repo": "Rocktier/Rocktier-MD", "identifier": "Rocktier.RocktierMarkdown", "stack": "Tauri2+React", "shell": "M", "license": "MIT", "pricing": { "store": 4.99, "direct": 6.99 }, "status": "v1.0.5-released; store-submitted", "base": ["L0","L1","L2","L3","L4","L5","L6"], "notes": "家族最成熟，i18n 全量接线，有单元测试，是其他产品的参照实现" },
-    { "id": "write", "displayName": "Rocktier Write", "repo": "Rocktier/Rocktier-Write", "identifier": "com.rocktier.write", "stack": "Tauri2+React", "shell": "M", "license": "MIT", "pricing": { "direct": 12.99 }, "status": "v1.1.11-released", "base": ["L0","L1","L2","L3","L4","L5","L6"], "notes": "7 语言；Mac App Store 构建已支持。⚠️ src-tauri/src/paddle.rs 是死代码且有致命缺陷（明文 license 落盘；无环境变量时任意 ≥8 字符串即激活）——接入付费墙必须用 PDF license.rs（Ed25519 回执）方案并删除 paddle.rs，绝不可把 paddle.rs 接上前端（UX 报告 §B.0）。identifier com.rocktier.write 经 2026-10-02 复核裁定为已上架例外（v1.1.11 已上架，改名代价大于收益），保留" },
-    { "id": "pic2webp", "displayName": "Rocktier Pic2WebP", "repo": "Rocktier/pic2webp", "identifier": "Rocktier.RocktierPic2WebP", "stack": "Tauri2+VanillaJS", "shell": "S", "license": "MIT", "pricing": { "store": 4.99, "direct": 4.99 }, "status": "v1.9.4-released; live-in-store", "base": ["L0","L1","L2","L5"], "notes": "视觉落地最佳参照；8 语言。vanilla JS 只能接 L0/L1/L2 的降级形态" },
-    { "id": "cad-viewer", "displayName": "Rocktier CAD Viewer", "repo": "Rocktier/Rocktier-CAD-Viewer", "identifier": "Rocktier.RocktierCADViewer", "stack": "Tauri2+Svelte5", "shell": "M", "license": "MIT", "bundled": ["libredwg-dwg2dxf(GPL-3.0-or-later, 独立进程)"], "pricing": { "store": 4.99, "direct": 14.99 }, "status": "v0.2.4-released; live-in-store-240-markets", "base": ["L0","L1","L2","L3","L5","L6"], "p0": "已修（bce8c54，中英许可证对齐 MIT + ezdxf 署名）" },
-    { "id": "ocr", "displayName": "Rocktier OCR", "repo": "Rocktier/Rocktier-OCR", "identifier": "Rocktier.RocktierOCR", "stack": "Tauri2+VanillaJS+Rust", "shell": "S", "license": "MIT", "bundled": ["onnxruntime","ppocrv5-onnx(Apache-2.0)"], "pricing": { "direct": 14.99 }, "status": "v0.1.9-released; store-submitted", "base": ["L0","L1","L2","L5","L6"], "notes": "最高潜力：英文 char F1 97.5% 已验证" },
-    { "id": "journal", "displayName": "Rocktier Journal", "repo": "Rocktier/Rocktier-Journal", "identifier": "Rocktier.RocktierJournal", "stack": "Tauri2+React+Tiptap", "shell": "M", "license": "MIT", "pricing": { "direct": 9.99 }, "status": "v0.2.5-released", "base": ["L0","L1","L2","L3","L5","L6"], "mustStayStandalone": true, "p0": "i18n/锁屏硬编码已修（9e68c70）；P0-10/11/12 已修（6e4df12，v0.2.5）。🔴 遗留：备份恢复链路 export↔restore 未联调（init_vault 从不创建 meta/ 子目录，restore 必报缺 vault.salt）＋ index.html 防闪脚本仍读旧键 rj-theme——见 task_plan 阶段 8A" },
-    { "id": "compressor", "displayName": "Rocktier Compressor", "repo": "Rocktier/Rocktier-Compressor", "identifier": "Rocktier.RocktierCompressor", "stack": "Tauri2+React+Go引擎", "shell": "S", "license": "TBD（README 曾写 Commercial，未定）", "pricing": { "store": 4.99 }, "status": "v0.1.2-released（2026-10-02 五包）", "base": ["L0","L1","L5"], "notes": "2026-10-01 收编为第 9 款：前端重写（默认英文+持久化、menu-action、关窗守卫、拖放/文件夹、Geist）、CI 用 PDF 范式 + 发版闸门；P0-16/17/18 已修（0c50c76/fc187e9）。遗留见 task_plan 阶段 8C（xlsx/pdf 忽略参数、覆盖确认、浅色主题、OFL.txt）" },
-    { "id": "sign", "displayName": "Rocktier Sign", "repo": "Rocktier/Rocktier-Sign", "identifier": "Rocktier.RocktierSign", "stack": "Tauri2+React", "shell": "S", "license": "MIT", "pricing": { "direct": 9.99 }, "status": "v0.1.3-released", "base": ["L0","L1","L2","L3","L5","L6"], "mustStayStandalone": true, "p1": "撞键已修（8507dba，改用 rocktier.journal.theme）；P0-13/14 已修（33befbd，v0.1.3 私钥入系统钥匙串 + 验证三态）。其余遗留见 task_plan 阶段 8C", "notes": "密码学签名域独立。曾被误判为 PDF 的重复实现，已核实更正" }
+    {
+      "id": "pdf",
+      "displayName": "Rocktier PDF",
+      "repo": "Rocktier/Rocktier-PDF",
+      "identifier": "Rocktier.RocktierPDF",
+      "stack": "Tauri2+React",
+      "shell": "L",
+      "tools": 20,
+      "license": "MIT",
+      "bundled": [
+        "pdfium(BSD-3)",
+        "qpdf(Apache-2.0)",
+        "mozjpeg(BSD-3)"
+      ],
+      "pricing": {
+        "store": 4.99,
+        "direct": 9.99
+      },
+      "status": "v1.0.20-released; store-submitted",
+      "base": [
+        "L0",
+        "L1",
+        "L2",
+        "L3",
+        "L5",
+        "L6"
+      ]
+    },
+    {
+      "id": "markdown",
+      "displayName": "Rocktier Markdown",
+      "repo": "Rocktier/Rocktier-MD",
+      "identifier": "Rocktier.RocktierMarkdown",
+      "stack": "Tauri2+React",
+      "shell": "M",
+      "license": "MIT",
+      "pricing": {
+        "store": 4.99,
+        "direct": 6.99
+      },
+      "status": "v1.0.5-released; store-submitted",
+      "base": [
+        "L0",
+        "L1",
+        "L2",
+        "L3",
+        "L4",
+        "L5",
+        "L6"
+      ],
+      "notes": "家族最成熟，i18n 全量接线，有单元测试，是其他产品的参照实现"
+    },
+    {
+      "id": "write",
+      "displayName": "Rocktier Write",
+      "repo": "Rocktier/Rocktier-Write",
+      "identifier": "com.rocktier.write",
+      "stack": "Tauri2+React",
+      "shell": "M",
+      "license": "MIT",
+      "pricing": {
+        "direct": 12.99
+      },
+      "status": "v1.1.11-released",
+      "base": [
+        "L0",
+        "L1",
+        "L2",
+        "L3",
+        "L4",
+        "L5",
+        "L6"
+      ],
+      "notes": "7 语言；Mac App Store 构建已支持。⚠️ src-tauri/src/paddle.rs 是死代码且有致命缺陷（明文 license 落盘；无环境变量时任意 ≥8 字符串即激活）——接入付费墙必须用 PDF license.rs（Ed25519 回执）方案并删除 paddle.rs，绝不可把 paddle.rs 接上前端（UX 报告 §B.0）。identifier com.rocktier.write 经 2026-10-02 复核裁定为已上架例外（v1.1.11 已上架，改名代价大于收益），保留"
+    },
+    {
+      "id": "pic2webp",
+      "displayName": "Rocktier Pic2WebP",
+      "repo": "Rocktier/pic2webp",
+      "identifier": "Rocktier.RocktierPic2WebP",
+      "stack": "Tauri2+VanillaJS",
+      "shell": "S",
+      "license": "MIT",
+      "pricing": {
+        "store": 4.99,
+        "direct": 4.99
+      },
+      "status": "v1.9.4-released; live-in-store",
+      "base": [
+        "L0",
+        "L1",
+        "L2",
+        "L5"
+      ],
+      "notes": "视觉落地最佳参照；8 语言。vanilla JS 只能接 L0/L1/L2 的降级形态"
+    },
+    {
+      "id": "cad-viewer",
+      "displayName": "Rocktier CAD Viewer",
+      "repo": "Rocktier/Rocktier-CAD-Viewer",
+      "identifier": "Rocktier.RocktierCADViewer",
+      "stack": "Tauri2+Svelte5",
+      "shell": "M",
+      "license": "MIT",
+      "bundled": [
+        "libredwg-dwg2dxf(GPL-3.0-or-later, 独立进程)"
+      ],
+      "pricing": {
+        "store": 4.99,
+        "direct": 14.99
+      },
+      "status": "v0.2.4-released; live-in-store-240-markets",
+      "base": [
+        "L0",
+        "L1",
+        "L2",
+        "L3",
+        "L5",
+        "L6"
+      ],
+      "p0": "已修（bce8c54，中英许可证对齐 MIT + ezdxf 署名）"
+    },
+    {
+      "id": "ocr",
+      "displayName": "Rocktier OCR",
+      "repo": "Rocktier/Rocktier-OCR",
+      "identifier": "Rocktier.RocktierOCR",
+      "stack": "Tauri2+VanillaJS+Rust",
+      "shell": "S",
+      "license": "MIT",
+      "bundled": [
+        "onnxruntime",
+        "ppocrv5-onnx(Apache-2.0)"
+      ],
+      "pricing": {
+        "direct": 14.99
+      },
+      "status": "v0.1.9-released; store-submitted",
+      "base": [
+        "L0",
+        "L1",
+        "L2",
+        "L5",
+        "L6"
+      ],
+      "notes": "最高潜力：英文 char F1 97.5% 已验证"
+    },
+    {
+      "id": "journal",
+      "displayName": "Rocktier Journal",
+      "repo": "Rocktier/Rocktier-Journal",
+      "identifier": "Rocktier.RocktierJournal",
+      "stack": "Tauri2+React+Tiptap",
+      "shell": "M",
+      "license": "MIT",
+      "pricing": {
+        "direct": 9.99
+      },
+      "status": "v0.2.5-released",
+      "base": [
+        "L0",
+        "L1",
+        "L2",
+        "L3",
+        "L5",
+        "L6"
+      ],
+      "mustStayStandalone": true,
+      "p0": "i18n/锁屏硬编码已修（9e68c70）；P0-10/11/12 已修（6e4df12，v0.2.5）。🔴 遗留：备份恢复链路 export↔restore 未联调（init_vault 从不创建 meta/ 子目录，restore 必报缺 vault.salt）＋ index.html 防闪脚本仍读旧键 rj-theme——见 task_plan 阶段 8A"
+    },
+    {
+      "id": "compressor",
+      "displayName": "Rocktier Compressor",
+      "repo": "Rocktier/Rocktier-Compressor",
+      "identifier": "Rocktier.RocktierCompressor",
+      "stack": "Tauri2+React+Go引擎",
+      "shell": "S",
+      "license": "TBD（README 曾写 Commercial，未定）",
+      "pricing": {
+        "store": 4.99,
+          "direct": 9.99
+      },
+      "status": "v0.1.2-released（2026-10-02 五包）",
+      "base": [
+        "L0",
+        "L1",
+        "L5"
+      ],
+      "notes": "2026-10-01 收编为第 9 款：前端重写（默认英文+持久化、menu-action、关窗守卫、拖放/文件夹、Geist）、CI 用 PDF 范式 + 发版闸门；P0-16/17/18 已修（0c50c76/fc187e9）。遗留见 task_plan 阶段 8C（xlsx/pdf 忽略参数、覆盖确认、浅色主题、OFL.txt）"
+    },
+    {
+      "id": "sign",
+      "displayName": "Rocktier Sign",
+      "repo": "Rocktier/Rocktier-Sign",
+      "identifier": "Rocktier.RocktierSign",
+      "stack": "Tauri2+React",
+      "shell": "S",
+      "license": "MIT",
+      "pricing": {
+        "direct": 9.99
+      },
+      "status": "v0.1.3-released",
+      "base": [
+        "L0",
+        "L1",
+        "L2",
+        "L3",
+        "L5",
+        "L6"
+      ],
+      "mustStayStandalone": true,
+      "p1": "撞键已修（8507dba，改用 rocktier.journal.theme）；P0-13/14 已修（33befbd，v0.1.3 私钥入系统钥匙串 + 验证三态）。其余遗留见 task_plan 阶段 8C",
+      "notes": "密码学签名域独立。曾被误判为 PDF 的重复实现，已核实更正"
+    }
   ],
-
   "dissolved": [
-    { "id": "pdf-squeeze", "reason": "Ghostscript AGPL-3.0 与 MIT 冲突，2026-09-18 已下架；压缩能力已并入 PDF", "residualCleanup": "授权码 SQ→PD 已于 2026-10-03 清理完毕（应用+官网同批）；仍待清的是官网残留命名（/pdf-squeeze URL、子图标文件名），改 URL 须带 301", "action": "清理残留引用" },
-    { "id": "toss", "reason": "跨网络传输与家族『数据只留在设备上』根基冲突，2026-09-25 已终止", "action": "仓库归档保留，不再开发" }
+    {
+      "id": "pdf-squeeze",
+      "reason": "Ghostscript AGPL-3.0 与 MIT 冲突，2026-09-18 已下架；压缩能力已并入 PDF",
+      "residualCleanup": "SQ 码保留（PDF 在售单品码，2026-10-02 复核裁定）；真正待清的是官网残留命名（/pdf-squeeze URL、价格表注释、子图标文件名），改 URL 须带 301",
+      "action": "清理残留引用"
+    },
+    {
+      "id": "toss",
+      "reason": "跨网络传输与家族『数据只留在设备上』根基冲突，2026-09-25 已终止",
+      "action": "仓库归档保留，不再开发"
+    }
   ],
-
   "$mergeVerdict_comment": "结论：不合并任何产品。用共享底座替代产品合并。理由见 DECISIONS.md §4",
   "mergeVerdict": {
     "mergeAnyProducts": false,
     "rejected": [
-      { "proposal": "Doc (PDF + Markdown)", "rejected": true, "reason": "Markdown 编辑与 PDF 操作是两个不同工作，且 OCR 也输出 PDF，合并后边界不清" },
-      { "proposal": "Pic (Pic2WebP + OCR)", "rejected": true, "reason": "技术同源（图像编解码）但用户不同；且『OCR』是关键词，埋进 Pic 等于放弃搜索入口" },
-      { "proposal": "Private (Sign + Journal)", "rejected": true, "reason": "信任模型冲突：签名工具须持私钥，日记要求谁也碰不到，同体互相摧毁" },
-      { "proposal": "Sign 并入 PDF", "rejected": true, "reason": "我曾误判 PDF 的 StampDialog 与 Sign 的 uploadSig 重复。核实后确认：PDF 的 stamp 是视觉水印（pdf.rs:504 放 PNG），Sign 是密码学签名（ring:: ×9）。PDF 全仓库无 PKCS7/ByteString/SubFilter/ByteRange，不具备签名能力" },
-      { "proposal": "Write 并入 Markdown", "rejected": true, "reason": "产品定义互斥（单栏专注 vs 分屏预览）；Write 已 v1.1.11 发布，合并=丢弃已有商店素材。底层 2 文件已 MD5 一致，抽包零风险即可复用" }
+      {
+        "proposal": "Doc (PDF + Markdown)",
+        "rejected": true,
+        "reason": "Markdown 编辑与 PDF 操作是两个不同工作，且 OCR 也输出 PDF，合并后边界不清"
+      },
+      {
+        "proposal": "Pic (Pic2WebP + OCR)",
+        "rejected": true,
+        "reason": "技术同源（图像编解码）但用户不同；且『OCR』是关键词，埋进 Pic 等于放弃搜索入口"
+      },
+      {
+        "proposal": "Private (Sign + Journal)",
+        "rejected": true,
+        "reason": "信任模型冲突：签名工具须持私钥，日记要求谁也碰不到，同体互相摧毁"
+      },
+      {
+        "proposal": "Sign 并入 PDF",
+        "rejected": true,
+        "reason": "我曾误判 PDF 的 StampDialog 与 Sign 的 uploadSig 重复。核实后确认：PDF 的 stamp 是视觉水印（pdf.rs:504 放 PNG），Sign 是密码学签名（ring:: ×9）。PDF 全仓库无 PKCS7/ByteString/SubFilter/ByteRange，不具备签名能力"
+      },
+      {
+        "proposal": "Write 并入 Markdown",
+        "rejected": true,
+        "reason": "产品定义互斥（单栏专注 vs 分屏预览）；Write 已 v1.1.11 发布，合并=丢弃已有商店素材。底层 2 文件已 MD5 一致，抽包零风险即可复用"
+      }
     ]
   },
-
   "newProductAdmission": {
     "$comment": "新产品开工前必须过这五关。详见 DECISIONS.md §5",
     "checklist": [
@@ -242,16 +584,14 @@
       "identifier 新产品必须为 Rocktier.Rocktier<Product>；Write 的 com.rocktier.write 为已上架例外（2026-10-02 复核裁定保留）"
     ]
   },
-
   "pricing": {
     "model": "one-time-purchase",
     "noSubscription": true,
-    "familyBundleUSD": 19.99,
+    "familyBundleUSD": 29.99,
     "grandfathering": true,
     "evidence": "findings.md 已实证：单品 $4.99 / 全家桶 $19.99 压在市场底部。CAD 竞品 DWGSee $69；OCR 竞品 Readiris $49 / ABBYY $199；Write 竞品 Ulysses $59/yr",
-    "note": "direct 定价为建议值，待用户拍板。商店定价一旦发布不可改（需重新审核）。⚠️ 准则 §12.4 规定 8 款以上全家桶 $29.99，现官网 9 款仍售 $19.99——涨价待用户拍板（P0-28 尾巴，含 grandfathering 口径）"
+    "note": "2026-10-03 用户拍板采纳保守档（Q6）。direct 价已全部对齐；商店价仍为旧值，改价需重新提交审核且 Apple 正在审核中，故商店侧暂不动。全家桶 $19.99→$29.99 须同步官网价格表 rocktier.com/api/_shared.js。"
   },
-
   "ciChecks": [
     "tokens-snapshot-diff",
     "light-theme-token-parity",
@@ -264,6 +604,10 @@
     "rail-item-count",
     "reduced-motion-block-present",
     "identifier-naming-convention",
-    "directory-name-matches-contract"
-  ]
+    "directory-name-matches-contract",
+    "about-menu-metadata",
+    "menu-action-has-frontend-handler",
+    "error-text-localized"
+  ],
+  "$windows_checks_comment": "第13-15 条来自 2026-10-03 Windows 商店审核的一批真实问题。共性：macOS 完全正常，只有 Windows 暴露，且静默失败（不报错、不崩溃、只是点了没反应），因此跨平台 CI 抓不到，只能靠契约闸门拦。实现见 docs/rocktier/tools/checks-windows.mjs。"
 }
