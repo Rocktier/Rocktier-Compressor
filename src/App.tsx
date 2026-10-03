@@ -1,7 +1,14 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { open } from "@tauri-apps/plugin-dialog";
+import { LicenseDialog } from "./components/LicenseDialog";
+import {
+  licenseStatus,
+  onLicenseExpired,
+  isLicenseExpiredError,
+  type LicenseInfo,
+} from "./services/license";
 
 type Lang = "en" | "zh";
 type Profile = { name: string; label: string; description: string; quality: string };
@@ -81,6 +88,9 @@ export default function App() {
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState("");
   const [dragOver, setDragOver] = useState(false);
+  // 授权（家族 L6）：状态记账 + 对话框开关。null = 尚未取到（或浏览器 dev）。
+  const [license, setLicense] = useState<LicenseInfo | null>(null);
+  const [licenseOpen, setLicenseOpen] = useState(false);
 
   // Refs that always hold the latest values, so the once-registered menu /
   // event listeners and the per-file compress loop never read stale state.
@@ -98,6 +108,37 @@ export default function App() {
   targetRef.current = target;
 
   const t = (zh: string, en: string) => (langRef.current === "zh" ? zh : en);
+
+  // ── License（家族 L6）：读一次试用状态；写操作被拦时由 Rust 发 license-expired
+  //    事件（命令层统一发，界面不用在每个 catch 里各判一次），这里弹激活对话框并
+  //    刷新状态。前端另有兜底：invoke 错误串含 LICENSE_EXPIRED 也开对话框。──
+  const refreshLicense = useCallback(() => {
+    licenseStatus()
+      .then(setLicense)
+      .catch(() => setLicense(null));
+  }, []);
+
+  const openLicense = useCallback(() => {
+    setLicenseOpen(true);
+    refreshLicense();
+  }, [refreshLicense]);
+
+  useEffect(() => {
+    refreshLicense();
+    let disposed = false;
+    let unlisten: (() => void) | undefined;
+    void onLicenseExpired(() => {
+      setLicenseOpen(true);
+      refreshLicense();
+    }).then((fn) => {
+      if (disposed) fn();
+      else unlisten = fn;
+    });
+    return () => {
+      disposed = true;
+      unlisten?.();
+    };
+  }, [refreshLicense]);
 
   const addFile = (p: string) => {
     setFiles((prev) => {
@@ -224,6 +265,9 @@ export default function App() {
         setFiles((prev) =>
           prev.map((x) => (x.path === f.path ? { ...x, status: "error", error: String(e) } : x)),
         );
+        // 双保险（家族 L6）：事件链已弹对话框（license-expired）；这里兜错误串，
+        // 防事件丢失时该文件只留一个裸失败标记。
+        if (isLicenseExpiredError(e)) openLicense();
       }
     }
     let msg: string;
@@ -272,6 +316,7 @@ export default function App() {
           if (id === "add") openAdd();
           else if (id === "add-folder") openAddFolder();
           else if (id === "compress") compress();
+          else if (id === "license") openLicense();
           else if (id === "website") invoke("open_url", { url: "https://rocktier.com" });
           else if (id === "support") invoke("open_url", { url: "https://rocktier.com/support" });
         }),
@@ -457,6 +502,12 @@ export default function App() {
           </button>
         )}
       </footer>
+
+      {/* 许可与激活（家族 L6）。到期写操作被拦时由 Rust 发 license-expired
+          事件弹这里，菜单「许可与激活」也走同一个 openLicense()。 */}
+      {licenseOpen && (
+        <LicenseDialog info={license} lang={lang} onRefresh={refreshLicense} onClose={() => setLicenseOpen(false)} />
+      )}
     </div>
   );
 }

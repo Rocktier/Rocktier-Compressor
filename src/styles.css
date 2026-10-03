@@ -332,3 +332,131 @@ body {
     transition: none !important;
   }
 }
+
+/* ── 许可与激活对话框（家族 L6）─────────────────────────────────────────
+ * 拷自 Sign/src/styles.css 的同名块，但令牌换成本产品自己的私有方言
+ * （--surface / --text / --brand / --radius / --font-sans）。
+ * 直接照抄 Sign 的变量名会全部落空 —— Sign 用的是家族规范令牌
+ * （--bg-floating / --text-primary / --accent-brand），Compressor 一律不定义。
+ */
+.license-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(2px);
+}
+
+.license-dialog {
+  width: min(440px, calc(100vw - 48px));
+  max-height: min(80vh, 560px);
+  overflow-y: auto;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.5);
+  padding: 16px 18px;
+  font-size: 13px;
+  color: var(--text);
+}
+
+.license-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.license-header h3 {
+  margin: 0;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text);
+  font-weight: 600;
+}
+
+.license-close {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 18px;
+  cursor: pointer;
+  padding: 0 4px;
+  line-height: 1;
+}
+.license-close:hover { color: var(--text); }
+
+.license-body p { margin: 0 0 10px; }
+.license-body small { color: var(--text-muted); line-height: 1.5; }
+
+.license-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.license-field label {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.license-field input {
+  padding: 7px 10px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  color: var(--text);
+  outline: none;
+}
+.license-field input:focus { border-color: var(--brand); }
+
+.license-error {
+  color: var(--brand);
+  font-size: 12px;
+}
+
+.license-footer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.license-footer-spacer { flex: 1; }
+
+.license-footer button {
+  padding: 6px 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-family: var(--font-sans);
+  font-size: 12px;
+  color: var(--text);
+  background: var(--surface-2);
+  cursor: pointer;
+}
+.license-footer button:hover:not(:disabled) {
+  border-color: var(--brand);
+}
+.license-footer button:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.license-footer button.license-activate {
+  background: var(--brand);
+  border-color: transparent;
+  color: #fff;
+  font-weight: 600;
+}
+.license-footer button.license-activate:hover:not(:disabled) {
+  background: var(--brand-hover);
+}
