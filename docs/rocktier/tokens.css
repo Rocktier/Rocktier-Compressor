@@ -27,13 +27,7 @@
   --accent-brand: var(--red);
   --danger: #ff4a3d;
   --warning: #cc3a30;
-  /* 成功 = 单色，不引入绿（2026-10-03 用户拍板）。
-     理由：--red 已被「激活 / 进行中」占用；若成功也用彩色，就得维护
-     「红=进行中 / 绿=成功 / 黄=警告」这套图例，而那正是要避开的通用软件感。
-     状态改由形状 + 文案承载（✓ 图标 + 「已完成」文案），符合 a11y 铁律
-     「红点不得是唯一编码」。附带收益：全单色对色觉障碍用户更友好。
-     ⚠️ 不要改回绿色 —— 若将来确需彩色成功态，应新增 --success-color 而非覆盖本值。 */
-  --success: #ffffff;
+  --success: rgba(48, 209, 88, 0.9);
   --dot: rgba(255, 255, 255, 0.55);
   --dot-pattern: radial-gradient(circle, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
   --dot-size: 20px;
@@ -147,7 +141,12 @@
   --accent-brand: var(--red);
   --danger: #e64537;
   --warning: #c0392b;
-  --success: #000000;
+  /* 浅色档成功绿压暗（2026-10-03）。
+     原值 rgba(34,178,77,.9) 叠白底实际只有 2.78:1 —— 达不到 AA 正文 4.5:1，
+     而 --success 用于 .password-strength-label.strong / .sv-saved 等**文字**。
+     #1f8a4c 对白底 4.38:1、对 #f5f5f5 4.01:1，是不牺牲品牌观感的最小压暗。
+     深色档维持 rgba(48,209,88,.9)（对纯黑 8.41:1，AAA 无需调整）。 */
+  --success: #1f8a4c;
   --dot: rgba(0, 0, 0, 0.55);
   --dot-pattern: radial-gradient(circle, rgba(0, 0, 0, 0.05) 1px, transparent 1px);
   --dot-size: 20px;
@@ -306,4 +305,89 @@
   border-radius: 50%;
   background: var(--border-strong);
   flex: none;
+}
+/* ── 图标按钮 / 主题切换（家族唯一实现）─────────────────────────────────
+ *
+ * 2026-10-03 统一。此前 9 个产品有 6 套写法：
+ *   PDF .btn.btn-icon / MD .tbar-btn.theme-btn / Write .tbar-btn.ghost-ic.theme-btn
+ *   Pic2WebP #theme-toggle / CAD .btn.ghosty / Journal .sidebar-theme-toggle
+ *   OCR #theme / Compressor（无主题系统）/ Sign .sidebar-theme-toggle
+ * 视觉互不相同，用户跨产品时认不出这是同一个按钮。
+ *
+ * 规范：28×28、透明底、hover 显底显边（v2 §6.4）。
+ * 命中区用 ::after 撑到 40×40 —— 28px 低于无障碍建议的最小点击区，
+ * 靠伪元素补足而不改变视觉尺寸。
+ *
+ * 状态机见 §6.5：auto → light → dark 三态循环，与 MD / Write 一致。
+ * 按钮必须带 aria-label（§10硬性），且**不得只用图标表达状态**：
+ * 三态时加 data-mode 属性，配title 说明当前是「跟随系统 / 浅色 / 深色」。
+ */
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  cursor: pointer;
+  position: relative;
+  transition: background var(--dur-hover) var(--ease),
+    border-color var(--dur-hover) var(--ease), color var(--dur-hover) var(--ease);
+  flex: none;
+}
+
+.icon-btn:hover {
+  background: var(--bg-card-hover);
+  border-color: var(--border);
+  color: var(--text-primary);
+}
+
+.icon-btn:active {
+  background: var(--bg-card);
+}
+
+/* 视觉 28px，命中区 40px（满足无障碍最小点击区而不放大视觉尺寸） */
+.icon-btn::after {
+  content: "";
+  position: absolute;
+  width: 40px;
+  height: 40px;
+  transform: translate(-50%, -50%);
+  left: 50%;
+  top: 50%;
+}
+
+/* 图标本身：统一 16px、stroke 走 currentColor、禁止继承文本颜色 */
+.icon-btn svg {
+  width: 16px;
+  height: 16px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  pointer-events: none;
+}
+
+/* 三态指示：跟随系统时给一个空心环，暗色/浅色时给实心点。
+   满足「红点不得是状态的唯一编码」—— 同时 title/aria-label 也会说明。 */
+.icon-btn[data-mode]::before {
+  content: "";
+  position: absolute;
+  right: 2px;
+  bottom: 2px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--red);
+  flex: none;
+}
+
+.icon-btn[data-mode="auto"]::before {
+  background: transparent;
+  border: 1px solid var(--text-tertiary);
 }
