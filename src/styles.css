@@ -95,9 +95,9 @@ body {
   cursor: pointer;
 }
 .lang-toggle button.active {
-  background: var(--brand);
-  border-color: var(--brand);
-  color: #fff;
+  background: transparent;
+  border-color: var(--red);
+  color: var(--red);
 }
 
 /* ---------- Content ---------- */
@@ -128,16 +128,16 @@ body {
   transition: border-color 0.2s;
 }
 .dropzone:hover {
-  border-color: var(--brand);
+  border-color: var(--accent);
 }
 /* 拖拽悬停反馈（tauri://drag-enter / drag-leave 切换） */
 .dropzone.dragover {
-  border-color: var(--brand);
+  border-color: var(--accent);
   background: var(--surface-2);
 }
 .dropzone-icon {
   font-size: 48px;
-  color: var(--brand);
+  color: var(--text-muted);
   opacity: 0.6;
 }
 .dropzone-title {
@@ -206,7 +206,9 @@ body {
 
 /* 键盘用户必须看得见焦点在哪（家族无障碍底线） */
 :focus-visible {
-  outline: 2px solid var(--brand);
+  /* 焦点环用 accent 而非品牌红：红是状态色，而焦点表示「你在这里」，
+     不是「出事了」。 */
+  outline: 2px solid var(--accent);
   outline-offset: 2px;
   border-radius: var(--radius);
 }
@@ -261,9 +263,11 @@ body {
   border-color: var(--text-muted);
 }
 .chip.active {
-  background: var(--brand);
-  border-color: var(--brand);
-  color: #fff;
+  /* 选中态：红色只做描边与文字，不做实心底。
+     家族的红是「红点语言」（状态/进行中），实心红块会被读成按钮。 */
+  background: transparent;
+  border-color: var(--red);
+  color: var(--red);
 }
 .chip:disabled {
   opacity: 0.45;
@@ -291,9 +295,12 @@ body {
   white-space: nowrap;
 }
 .primary {
-  background: var(--brand);
+  /* 家族规范：主按钮是白底黑字（--accent / --on-accent）。
+     此前用品牌红实心底，把「状态色」当「行动色」用了 —— 全家族 18 处 --brand
+     里这是最重的一处，规范 v2 已点名批评。 */
+  background: var(--accent);
   border: none;
-  color: #fff;
+  color: var(--on-accent);
   padding: 8px 18px;
   border-radius: 8px;
   font-size: 13px;
@@ -301,7 +308,8 @@ body {
   cursor: pointer;
 }
 .primary:hover:not(:disabled) {
-  background: var(--brand-hover);
+  background: var(--accent);
+  filter: brightness(1.1);
 }
 .primary:disabled {
   opacity: 0.4;
@@ -318,8 +326,8 @@ body {
   cursor: pointer;
 }
 .secondary:hover {
-  border-color: var(--brand);
-  color: var(--brand);
+  border-color: var(--accent);
+  color: var(--text);
 }
 .profile-desc {
   font-size: 11px;
@@ -452,11 +460,12 @@ body {
 }
 
 .license-footer button.license-activate {
-  background: var(--brand);
+  background: var(--accent);
   border-color: transparent;
-  color: #fff;
+  color: var(--on-accent);
   font-weight: 600;
 }
 .license-footer button.license-activate:hover:not(:disabled) {
-  background: var(--brand-hover);
+  background: var(--accent);
+  filter: brightness(1.1);
 }
