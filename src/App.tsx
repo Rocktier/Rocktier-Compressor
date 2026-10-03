@@ -319,6 +319,8 @@ export default function App() {
           else if (id === "license") openLicense();
           else if (id === "website") invoke("open_url", { url: "https://rocktier.com" });
           else if (id === "support") invoke("open_url", { url: "https://rocktier.com/support" });
+          // 此前菜单项被创建但前端无分支 → 点了完全无反应（家族审查发现）。
+          else if (id === "feedback") invoke("open_url", { url: "mailto:hello@rocktier.com?subject=Rocktier%20Compressor%20Feedback" });
         }),
       );
       un.push(await listen<string>("opened-file", (e) => addPaths([e.payload])));

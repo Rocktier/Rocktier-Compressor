@@ -2,7 +2,7 @@ use std::path::Path;
 use std::process::Command;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
-use tauri::menu::{Menu, MenuItem, PredefinedMenuItem, Submenu};
+use tauri::menu::{AboutMetadata, Menu, MenuItem, PredefinedMenuItem, Submenu};
 use tauri_plugin_opener::OpenerExt;
 use tauri::{Emitter, Manager, WindowEvent};
 
@@ -424,7 +424,15 @@ fn build_menu(app: tauri::AppHandle, lang: String) -> Result<(), String> {
         l("Rocktier Compressor", "Rocktier Compressor"),
         true,
         &[
-            &PredefinedMenuItem::about(&app, Some(l("关于 Rocktier Compressor", "About Rocktier Compressor")), None)
+            &PredefinedMenuItem::about(
+                &app,
+                Some(l("关于 Rocktier Compressor", "About Rocktier Compressor")),
+                                Some(AboutMetadata {
+                    version: Some(env!("CARGO_PKG_VERSION").to_string()),
+                    copyright: Some("Copyright 2026 Rocktier".to_string()),
+                    ..Default::default()
+                }),
+            )
                 .map_err(|e| e.to_string())?,
             &PredefinedMenuItem::separator(&app).map_err(|e| e.to_string())?,
             &PredefinedMenuItem::hide(&app, None).map_err(|e| e.to_string())?,
