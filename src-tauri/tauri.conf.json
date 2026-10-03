@@ -134,7 +134,26 @@
     "copyright": "Copyright 2026 Rocktier",
     "category": "Business",
     "shortDescription": "Offline document and image compressor",
-    "longDescription": "Rocktier Compressor - Shrink PDFs, Office docs, and images without losing quality. On your machine, not someone else's server. Buy once, own forever."
+    "longDescription": "Rocktier Compressor - Shrink PDFs, Office docs, and images without losing quality. On your machine, not someone else's server. Buy once, own forever.",
+    "windows": {
+      "allowDowngrades": true,
+      "digestAlgorithm": "sha256",
+      "webviewInstallMode": {
+        "type": "downloadBootstrapper",
+        "silent": true
+      },
+      "nsis": {
+        "installMode": "currentUser",
+        "languages": [
+          "English"
+        ],
+        "displayLanguageSelector": false
+      },
+      "wix": {
+        "language": "en-US",
+        "upgradeCode": "CE6D9F1D-27BC-5C96-BEE1-BA7299C6C041"
+      }
+    }
   },
   "productName": "Rocktier Compressor",
   "mainBinaryName": "RocktierCompressor",
