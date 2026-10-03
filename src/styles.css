@@ -12,6 +12,9 @@
   font-display: swap;
 }
 
+/* Compressor 的私有方言（L0 母版的规范令牌名在这里一个都用不上，
+   所以浅色档必须把这一组令牌原样再写一遍 —— 铁律：两档令牌集必须完全相同。
+   --radius / --font-* 是主题无关的结构性令牌，留在 :root 即可。 */
 :root {
   --bg: #0a0a0a;
   --surface: #141414;
@@ -24,6 +27,19 @@
   --radius: 12px;
   --font-sans: "Geist", -apple-system, BlinkMacSystemFont, "Segoe UI", "Inter", sans-serif;
   --font-mono: "Geist Mono", ui-monospace, monospace;
+}
+
+/* 浅色档。值取自 L0 母版 tokens.css 的 [data-theme="light"]：
+   同一族浅色界面必须看起来是同一个产品，色阶不对齐会立刻穿帮。 */
+[data-theme="light"] {
+  --bg: #ffffff;
+  --surface: #f5f5f5;
+  --surface-2: #ebebeb;
+  --border: #e0e0e0;
+  --text: #1a1a1a;
+  --text-muted: #6e6e6e;
+  --brand: #e64537;
+  --brand-hover: #c0392b;
 }
 
 * {
@@ -79,6 +95,13 @@ body {
   /* 同上：让标题文字区域也能拖动窗口。取舍：标题栏文字不可选中——
      24ef701 恢复的可选中针对正文区（文件名/错误信息/状态栏），不受影响 */
   pointer-events: none;
+}
+/* 标题栏右侧：主题钮 + 语言钮。整块 no-drag，否则按钮点不动。 */
+.titlebar-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  -webkit-app-region: no-drag;
 }
 .lang-toggle {
   display: flex;
@@ -196,7 +219,8 @@ body {
   opacity: 0.6;
 }
 .file-info .ratio {
-  color: #4ade80;
+  /* 浅色档下 #4ade80 在白底上对比度不足，用 --success 随主题切换 */
+  color: var(--success, #4ade80);
 }
 .row-actions {
   display: flex;
@@ -365,7 +389,7 @@ body {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 16px 48px var(--page-shadow, rgba(0, 0, 0, 0.5));
   padding: 16px 18px;
   font-size: 13px;
   color: var(--text);
@@ -468,4 +492,80 @@ body {
 .license-footer button.license-activate:hover:not(:disabled) {
   background: var(--accent);
   filter: brightness(1.1);
+}
+
+/* ── 主题切换按钮（家族唯一实现，tokens.css §icon-btn 副本）──────────────
+ * 母版：rocktier-docs/docs/rocktier/tokens.css L320-388
+ * 各产品各存一份而不是 @import 母版：母版是构建期拷贝源，产品要能独立打包，
+ * 且令牌名在各产品方言里略有差异（见下方 var() 回退）。
+ * 28×28 视觉 / 40×40 命中区（无障碍最小点击区）。
+ */
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm, 12px);
+  color: var(--text-secondary, var(--text2, #888));
+  cursor: pointer;
+  position: relative;
+  transition: background var(--dur-hover, 150ms) var(--ease, ease),
+    border-color var(--dur-hover, 150ms) var(--ease, ease),
+    color var(--dur-hover, 150ms) var(--ease, ease);
+  flex: none;
+}
+
+.icon-btn:hover {
+  background: var(--bg-card-hover, rgba(255, 255, 255, 0.06));
+  border-color: var(--border, rgba(255, 255, 255, 0.08));
+  color: var(--text-primary, var(--text, #e8e8e8));
+}
+
+.icon-btn:active {
+  background: var(--bg-card, var(--card, rgba(255, 255, 255, 0.03)));
+}
+
+/* 视觉 28px，命中区 40px（满足无障碍最小点击区而不放大视觉尺寸） */
+.icon-btn::after {
+  content: "";
+  position: absolute;
+  width: 40px;
+  height: 40px;
+  transform: translate(-50%, -50%);
+  left: 50%;
+  top: 50%;
+}
+
+/* 图标本身：统一 16px、stroke 走 currentColor、禁止继承文本颜色 */
+.icon-btn svg {
+  width: 16px;
+  height: 16px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  pointer-events: none;
+}
+
+/* 三态指示：auto 空心环（跟随系统），light/dark 实心点。
+   红点不得是状态的唯一编码 —— title / aria-label 同时说明当前档位。 */
+.icon-btn[data-mode]::before {
+  content: "";
+  position: absolute;
+  right: 2px;
+  bottom: 2px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--red, #ff4a3d);
+}
+
+.icon-btn[data-mode="auto"]::before {
+  background: transparent;
+  border: 1px solid var(--text-tertiary, var(--text-muted, #888));
 }

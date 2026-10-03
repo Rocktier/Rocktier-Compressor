@@ -5,6 +5,22 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="icon" type="image/png" href="/favicon.png" />
     <title>Rocktier Compressor</title>
+    <!-- 三态主题防闪烁：必须在内联样式解析前定好，否则浅色系统上先画一帧深色底。
+         键与 useTheme.ts 一致（rocktier-compressor-theme）。 -->
+    <script>
+      (function () {
+        try {
+          var saved = localStorage.getItem("rocktier-compressor-theme");
+          var mode = saved === "light" || saved === "dark" || saved === "auto" ? saved : "auto";
+          document.documentElement.setAttribute("data-theme",
+            mode === "auto"
+              ? (window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark")
+              : mode);
+        } catch (e) {
+          document.documentElement.setAttribute("data-theme", "dark");
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

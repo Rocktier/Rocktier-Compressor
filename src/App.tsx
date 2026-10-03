@@ -3,6 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { open } from "@tauri-apps/plugin-dialog";
 import { LicenseDialog } from "./components/LicenseDialog";
+import { useTheme } from "./hooks/useTheme";
 import {
   licenseStatus,
   onLicenseExpired,
@@ -108,6 +109,14 @@ export default function App() {
   targetRef.current = target;
 
   const t = (zh: string, en: string) => (langRef.current === "zh" ? zh : en);
+  // 主题：auto → light → dark 三态（家族 §6.5）。label 走 t() 所以要等 lang 定下来。
+  const { mode: themeMode, cycleTheme } = useTheme();
+  const themeLabel =
+    themeMode === "auto"
+      ? t("跟随系统", "Follow system")
+      : themeMode === "light"
+        ? t("浅色", "Light")
+        : t("深色", "Dark");
 
   // ── License（家族 L6）：读一次试用状态；写操作被拦时由 Rust 发 license-expired
   //    事件（命令层统一发，界面不用在每个 catch 里各判一次），这里弹激活对话框并
@@ -374,9 +383,36 @@ export default function App() {
           <span className="brand-dot" />
           <span className="title-text">Rocktier Compressor</span>
         </div>
-        <div className="lang-toggle">
-          <button className={lang === "zh" ? "active" : ""} onClick={() => setLang("zh")}>中文</button>
-          <button className={lang === "en" ? "active" : ""} onClick={() => setLang("en")}>EN</button>
+        <div className="titlebar-right">
+          {/* 家族唯一主题按钮：.icon-btn（28×28 + 40×40 命中区），三态 auto→light→dark。
+              Compressor 此前没有任何主题入口，这一枚是新增的。 */}
+          <button
+            className="icon-btn"
+            data-mode={themeMode}
+            onClick={cycleTheme}
+            title={`${t("主题", "Theme")} \u00b7 ${themeLabel}`}
+            aria-label={`${t("主题", "Theme")}: ${themeLabel}`}
+          >
+            {themeMode === "auto" ? (
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <rect x="2.5" y="4" width="19" height="13" rx="2" />
+                <path d="M8 20.5h8M12 17v3.5" />
+              </svg>
+            ) : themeMode === "dark" ? (
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <circle cx="12" cy="12" r="4" />
+                <path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" />
+              </svg>
+            ) : (
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8z" />
+              </svg>
+            )}
+          </button>
+          <div className="lang-toggle">
+            <button className={lang === "zh" ? "active" : ""} onClick={() => setLang("zh")}>中文</button>
+            <button className={lang === "en" ? "active" : ""} onClick={() => setLang("en")}>EN</button>
+          </div>
         </div>
       </header>
 
