@@ -1,6 +1,6 @@
 {
   "$comment": "Rocktier 家族决策表 v3 — 机器可读。CI (npm run family:check) 读本文件。方法论与理由见 docs/rocktier/DECISIONS.md",
-  "$intake_note": "2026-10-02 晚自 Windows 机传入入库，已按家族最新拍板对账（明细见 DECISIONS.md §8）：①SQ 码保留（删则锁死 PDF 在售激活）；②Compressor 已于 10-01 收编为第 9 款（撤销砍除提案，v0.1.2 五包已发）；③Write identifier 裁定为已上架例外；④『跟随系统语言』『全局 theme 键』两项待拍板。",
+  "$intake_note": "2026-10-02 晚自 Windows 机传入入库，已按家族最新拍板对账（明细见 DECISIONS.md §8）：①SQ 码保留（删则锁死 PDF 在售激活）；②Compressor 已于 10-01 收编为第 9 款（撤销砍除提案，v0.1.2 五包已发）；③Write identifier 裁定为已上架例外；④『跟随系统语言』『全局 theme 键』两项待拍板；⑤SQ→PD 授权码改名已执行（依据：用户确认两渠道均无成交）。",
   "specVersion": "3.0",
   "tokensFile": "docs/rocktier/tokens.css",
   "contractVersion": "2026-10-02",
@@ -101,9 +101,9 @@
       "rules": [
         "唯一实现，5+ 产品共用同一套校验",
         "ACCEPTED_PRODUCTS 从 family.json 读取，禁止硬编码",
-        "SQ 码保留：它是 PDF 唯一在售单品码（官网价格表映射 SQ），删除会锁死所有新买家激活——2026-10-02 复核裁定，只改注释不改码"
+        "SQ→PD 码改名（2026-10-03 用户拍板）：用户确认 MS Store 与官网直售均无成交，故不存在存量回执需继续接受。应用 license.rs 与官网 _shared.js 已同批改为 PD"
       ],
-      "evidence": "现仅 PDF 有 license.rs；ACCEPTED_PRODUCTS=[\"SQ\",\"FL\"] 中 SQ 是已下架的 Squeeze",
+      "evidence": "2026-10-02 审计发现 PDF 的 ACCEPTED_PRODUCTS=[\"SQ\",\"FL\"] 中 SQ 为已下架 Squeeze 的遗留码；2026-10-03 已改名 PD 并同批更新官网价格表",
       "status": "extractable-now",
       "priority": 1,
       "rationale": "唯一变现闸门，抽完 5 个产品立刻可收费"
@@ -208,7 +208,7 @@
   ],
 
   "dissolved": [
-    { "id": "pdf-squeeze", "reason": "Ghostscript AGPL-3.0 与 MIT 冲突，2026-09-18 已下架；压缩能力已并入 PDF", "residualCleanup": "SQ 码保留（PDF 在售单品码，2026-10-02 复核裁定）；真正待清的是官网残留命名（/pdf-squeeze URL、价格表注释、子图标文件名），改 URL 须带 301", "action": "清理残留引用" },
+    { "id": "pdf-squeeze", "reason": "Ghostscript AGPL-3.0 与 MIT 冲突，2026-09-18 已下架；压缩能力已并入 PDF", "residualCleanup": "授权码 SQ→PD 已于 2026-10-03 清理完毕（应用+官网同批）；仍待清的是官网残留命名（/pdf-squeeze URL、子图标文件名），改 URL 须带 301", "action": "清理残留引用" },
     { "id": "toss", "reason": "跨网络传输与家族『数据只留在设备上』根基冲突，2026-09-25 已终止", "action": "仓库归档保留，不再开发" }
   ],
 

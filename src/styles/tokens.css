@@ -27,7 +27,13 @@
   --accent-brand: var(--red);
   --danger: #ff4a3d;
   --warning: #cc3a30;
-  --success: rgba(48, 209, 88, 0.9);
+  /* 成功 = 单色，不引入绿（2026-10-03 用户拍板）。
+     理由：--red 已被「激活 / 进行中」占用；若成功也用彩色，就得维护
+     「红=进行中 / 绿=成功 / 黄=警告」这套图例，而那正是要避开的通用软件感。
+     状态改由形状 + 文案承载（✓ 图标 + 「已完成」文案），符合 a11y 铁律
+     「红点不得是唯一编码」。附带收益：全单色对色觉障碍用户更友好。
+     ⚠️ 不要改回绿色 —— 若将来确需彩色成功态，应新增 --success-color 而非覆盖本值。 */
+  --success: #ffffff;
   --dot: rgba(255, 255, 255, 0.55);
   --dot-pattern: radial-gradient(circle, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
   --dot-size: 20px;
@@ -141,7 +147,7 @@
   --accent-brand: var(--red);
   --danger: #e64537;
   --warning: #c0392b;
-  --success: rgba(34, 178, 77, 0.9);
+  --success: #000000;
   --dot: rgba(0, 0, 0, 0.55);
   --dot-pattern: radial-gradient(circle, rgba(0, 0, 0, 0.05) 1px, transparent 1px);
   --dot-size: 20px;
