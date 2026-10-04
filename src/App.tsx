@@ -4,6 +4,7 @@ import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { open } from "@tauri-apps/plugin-dialog";
 import { LicenseDialog } from "./components/LicenseDialog";
 import { useTheme } from "./hooks/useTheme";
+import { localizeError } from "./services/errorText";
 import {
   licenseStatus,
   onLicenseExpired,
@@ -197,7 +198,7 @@ export default function App() {
         const list = await invoke<string[]>("list_files", { dir });
         addPaths(list);
       } catch (e) {
-        setStatus(String(e));
+        setStatus(localizeError(String(e), langRef.current === "zh"));
       }
     }
   };
@@ -272,7 +273,11 @@ export default function App() {
       } catch (e) {
         fail++;
         setFiles((prev) =>
-          prev.map((x) => (x.path === f.path ? { ...x, status: "error", error: String(e) } : x)),
+          prev.map((x) =>
+            x.path === f.path
+              ? { ...x, status: "error", error: localizeError(String(e), langRef.current === "zh") }
+              : x,
+          ),
         );
         // 双保险（家族 L6）：事件链已弹对话框（license-expired）；这里兜错误串，
         // 防事件丢失时该文件只留一个裸失败标记。

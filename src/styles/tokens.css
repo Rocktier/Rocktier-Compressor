@@ -117,6 +117,13 @@
 }
 
 [data-theme="light"] {
+
+  /* ── 以下一组是 2026-10-04 补的：浅色档此前把深色档的值逐字拷了过来 ──
+     表现为白底上的白字（1.00:1）、白底上的近黑块、以及看不见的描边。
+     逐项按 WCAG AA 重算：文字 ≥4.5:1，描边落在 --border/--border-hover 档位之间，
+     表面类改为「白或浅灰」而不是反转明度。--code-* 走 GitHub Light 色系
+     （.hljs 背景是 transparent，代码文字直接落在页面底色上）。
+     深色档一个值都没动 —— 铁律是只补浅色档，不许借机改深色。 */
   --bg-primary: #ffffff;
   --bg-secondary: #f5f5f5;
   --bg-elevated: #ffffff;
@@ -186,7 +193,7 @@
   --statusbar-h: 28px;
   --rail-w: 56px;
   --rail-w-open: 208px;
-  --accent-muted: rgba(255, 255, 255, 0.08);
+  --accent-muted: rgba(0, 0, 0, 0.06);
   --dur-fast: 0.15s;
   --font-sans: "Geist", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
     "Helvetica Neue", Arial, "PingFang SC", "Hiragino Sans GB",
@@ -195,42 +202,42 @@
   --mono: "Geist Mono", "SF Mono", "JetBrains Mono", "Fira Code", ui-monospace, Menlo, monospace;
   --dur-normal: 0.25s;
   --text: rgba(0, 0, 0, 0.95);
-  --text-muted: rgba(255, 255, 255, 0.30);
+  --text-muted: rgba(0, 0, 0, 0.58);
   --brand: #ff4a3d;
   --text2: rgba(0, 0, 0, 0.72);
-  --border-mid: rgba(255, 255, 255, 0.10);
+  --border-mid: rgba(0, 0, 0, 0.14);
   --radius-xs: 3px;
   --card: rgba(0, 0, 0, 0.03);
-  --bg-floating: #141414;
-  --bg-surface: #0a0a0a;
+  --bg-floating: #ffffff;
+  --bg-surface: #f5f5f5;
   --bg: #ffffff;
   --bg2: #f5f5f5;
-  --code-comment: #7d8590;
-  --code-keyword: #ff7b72;
-  --code-function: #d2a8ff;
-  --code-type: #ffa657;
+  --code-comment: #57606a;
+  --code-keyword: #cf222e;
+  --code-function: #8250df;
+  --code-type: #953800;
   --card-hover: rgba(0, 0, 0, 0.06);
-  --surface: #141414;
-  --glow-md: 0 0 20px rgba(255, 255, 255, 0.08);
+  --surface: #ffffff;
+  --glow-md: 0 0 20px rgba(0, 0, 0, 0.08);
   --fs-base: 13px;
   --head-bg: rgba(255, 255, 255, 0.8);
   --font-serif: "New York", "New York Small", Georgia, "Times New Roman",
     "Songti SC", "Source Han Serif SC", "Noto Serif CJK SC",
     "Microsoft YaHei UI", "Microsoft YaHei", "PingFang SC", serif;
-  --code-string: #a5d6ff;
-  --code-number: #79c0ff;
-  --code-variable: #79c0ff;
-  --code-tag: #7ee787;
+  --code-string: #0a3069;
+  --code-number: #0550ae;
+  --code-variable: #953800;
+  --code-tag: #116329;
   --dur-slow: 0.4s;
   --focus-ring: rgba(0, 0, 0, 0.45);
   --radius: 12px;
-  --surface-2: #1c1c1c;
-  --warn: rgba(255, 176, 46, 0.9);
+  --surface-2: #f5f5f5;
+  --warn: #8a5a00;
   --sidebar-w: 260px;
   --accent-warn: #d98a00;
-  --dim-text: rgba(255, 255, 255, 0.30);
+  --dim-text: rgba(0, 0, 0, 0.58);
   --scrollbar-thumb: rgba(0, 0, 0, 0.18);
-  --brand-dot: #181818;
+  --brand-dot: #e8e8e8;
   --focus-glow: rgba(0, 0, 0, 0.12);
   --brand-hover: #cc3a30;
 }
@@ -373,8 +380,20 @@
   pointer-events: none;
 }
 
-/* 三态指示：跟随系统时给一个空心环，暗色/浅色时给实心点。
-   满足「红点不得是状态的唯一编码」—— 同时 title/aria-label 也会说明。 */
+/* ── 三态指示（auto / light / dark 三档必须**肉眼可分**）────────────────
+ *
+ * 2026-10-04 修两处：
+ *
+ * 1) 此前 light 与 dark 两档共用同一条规则 —— 同色同形，循环到哪一档都看不出来，
+ *    只有 title/aria-label 里有（而 title 要 hover 才出现）。三态循环等于两态。
+ *    现在用**填充图案**区分：auto 空心环 / light 实心点 / dark 半实心。
+ *    5px 下形状差异读不出来，填充差异读得出来 —— 这是选图案而非选形状的原因。
+ *
+ * 2) 角标此前用 --red，与 .dot-live 撞车：同一个红点在一处表示「运行中」、
+ *    在另一处表示「当前档位」。语义必须解耦。角标是**信息**不是**告警**，
+ *    红色带危险/品牌暗示，主题档位不该抢这个语义 —— 三档统一走中性灰，
+ *    把 --red 留给 .dot-live（活跃）与 .btn-danger（危险）。
+ */
 .icon-btn[data-mode]::before {
   content: "";
   position: absolute;
@@ -383,11 +402,29 @@
   width: 5px;
   height: 5px;
   border-radius: 50%;
-  background: var(--red);
+  /* 兜底色 = dark 档。若某产品忘了写 data-mode 的具体值，
+     至少显示成一个有效的档位，而不是一个红点。 */
+  background: var(--text-tertiary);
   flex: none;
 }
 
+/* auto（跟随系统）：空心环 */
 .icon-btn[data-mode="auto"]::before {
   background: transparent;
+  border: 1px solid var(--text-tertiary);
+}
+
+/* light（浅色）：实心 */
+.icon-btn[data-mode="light"]::before {
+  background: var(--text-tertiary);
+}
+
+/* dark（深色）：左半实心 —— 与 auto 的空心环、light 的全实心都不同 */
+.icon-btn[data-mode="dark"]::before {
+  background: linear-gradient(
+    to right,
+    var(--text-tertiary) 0 50%,
+    transparent 50% 100%
+  );
   border: 1px solid var(--text-tertiary);
 }

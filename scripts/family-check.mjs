@@ -17,7 +17,7 @@
 
 import { readFileSync, existsSync, readdirSync, statSync } from "node:fs";
 import { join, resolve, basename, dirname } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const CONTRACT_CANDIDATES = [
@@ -32,11 +32,57 @@ const CONTRACT = JSON.parse(readFileSync(join(CONTRACT_DIR, "family.json"), "utf
 const args = process.argv.slice(2);
 const only = (args.includes("--product") ? args[args.indexOf("--product") + 1] : null) || null;
 const selfMode = args.includes("--self");
+
+/* ---------- 家族根探测 ----------
+ *
+ * 这份脚本有**两份分发位置**：各产品仓内的副本（`scripts/family-check.mjs`，
+ * 供 CI 跑 --self）与共享仓的这份（`docs/rocktier/tools/`，供跨仓全量检查）。
+ * 而**产品目录不在 rocktier-docs 里** —— 每个产品是独立仓库，是家族根的兄弟
+ * 目录。所以从共享仓这份往上"数三级"会落在 rocktier-docs 自己身上，随后 9 个
+ * 产品全部报 repo-present FAIL：看起来像契约全线崩了，实际只是路径算错。
+ *
+ * 改为**探测**而非算层数：候选祖先里第一个能看见成组产品目录的就是家族根。
+ * 脚本被挪到哪、嵌套几层都不用改。--root 仍可显式覆盖。
+ *
+ * ⚠️ 判定必须"多数命中"，不能"命中任意一个"：rocktier-docs/docs/ 下有一份
+ * launch-kit 镜像（docs/rocktier.com、docs/Rocktier-PDF …），它同样满足
+ * "存在某个同名目录"，任何单点探测都会在 docs/ 提前停下，然后把 9 个仓全部
+ * 报成目录不存在。产品检出目录带空格（"Rocktier PDF"）且成组出现，用它们当锚点。
+ */
+const PRODUCT_PROBE = ["Rocktier PDF", "Rocktier MD", "Rocktier Write", "Rocktier Pic2Webp"];
+
+function looksLikeFamilyRoot(dir) {
+  // 至少 3 个产品目录同处一个父目录，才认定这里是家族根。
+  return PRODUCT_PROBE.filter((d) => existsSync(join(dir, d))).length >= 3;
+}
+
+function probeFamilyRoot() {
+  // 产品内分发副本：脚本在 <product>/scripts/ 下，家族根就是它的上两级
+  // （产品的父目录里没有兄弟产品，但会有 rocktier.com 等；--self 走上面那条）。
+  if (selfMode) return resolve(HERE, "..");
+
+  let dir = HERE;
+  for (let i = 0; i < 8; i++) {
+    if (looksLikeFamilyRoot(dir)) return dir;
+    const up = dirname(dir);
+    if (up === dir) break;
+    dir = up;
+  }
+  // 一个候选都不认：退回脚本所在仓库根，并给出可操作的提示而不是静默错报。
+  return resolve(HERE, "..", "..");
+}
+
 const familyRoot = args.includes("--root")
   ? args[args.indexOf("--root") + 1]
-  : selfMode
-    ? resolve(HERE, "..")                  // 产品根目录
-    : resolve(HERE, "..", "..", "..");      // docs/rocktier/tools -> 家族根
+  : probeFamilyRoot();
+
+if (!selfMode && !looksLikeFamilyRoot(familyRoot)) {
+  console.error(
+    `family:check 找不到家族根（从 ${HERE} 往上探测 8 层都没见到产品目录）。\n` +
+    `  产品目录应与 rocktier-docs 平级，例如 "Rocktier PDF" / "rocktier.com"。\n` +
+    `  若你的布局不同，用 --root <家族根> 显式指定。\n`
+  );
+}
 
 /* ---------- 产品目录映射（本地检出名 ≠ 仓库名，见 ciChecks #12） ---------- */
 const LOCAL_DIRS = {
@@ -102,7 +148,8 @@ const add = (product, check, status, detail) =>
   results.push({ product, check, status, detail: String(detail || "").slice(0, 220) });
 
 /* ---------- 12 条 ciChecks ---------- */
-function runChecks(id, product, dir) {
+/* async：要 await checks-windows.mjs 的动态 import（第 13-15 条）*/
+async function runChecks(id, product, dir) {
   if (!existsSync(dir)) { add(id, "repo-present", "FAIL", `目录不存在: ${dir}`); return; }
 
   // 前端目录：多数是 src/，OCR 是 ui/ —— 两边都要扫
@@ -160,16 +207,80 @@ function runChecks(id, product, dir) {
   // 整文件的键（分文件形态：en.ts / zh.ts 全文件即该语言字典）
   const fileKeys = (t) =>
     new Set([...t.matchAll(/["'`]?([\w.$-]{2,})["'`]?\s*:\s*(?:["'`]|\[|\{|\(|true|false|-?\d)/g)].map((m) => m[1]));
+  /* 取某个对象字面量内的键名。`openBrace` 指向它的 `{`。
+   *
+   * 为什么必须自己扫括号：正则无法配平嵌套，而 i18n 字典里有嵌套对象
+   * （Journal 的分组、MD 的 `{ [key: string]: string }` 型嵌套），
+   * `\{([^}]*)\}` 这类写法会在第一个右括号处截断，把后面的键全漏掉。
+   *
+   * 必须跳过：字符串字面量（含转义与模板串的 ${}）、行注释、块注释 ——
+   * 否则注释里一句 `// 见 { 说明` 就会让括号计数错位，后面整块键都读不到。
+   *
+   * ⚠️ 这个函数此前**根本不存在**：`blockKeysFor` 里调用它，但全文件没有定义。
+   * 它一直没炸，纯粹是因为下面那个正则写错了（见 blockKeysFor 的注释）——
+   * 循环体一次都没进过。两个 bug 互相掩护，才让这条闸门看起来「跑了但没结果」。
+   */
+  const collectBlockKeys = (src, openBrace) => {
+    const keys = new Set();
+    if (src[openBrace] !== "{") return keys;
+    let depth = 0;
+    for (let i = openBrace; i < src.length; i++) {
+      const c = src[i], n = src[i + 1];
+      if (c === "/" && n === "/") {                       // 行注释
+        while (i < src.length && src[i] !== "\n") i++;
+        continue;
+      }
+      if (c === "/" && n === "*") {                       // 块注释
+        i += 2;
+        while (i < src.length && !(src[i] === "*" && src[i + 1] === "/")) i++;
+        i++;
+        continue;
+      }
+      if (c === '"' || c === "'" || c === "`") {          // 字符串 / 模板串
+        const quote = c;
+        i++;
+        while (i < src.length) {
+          if (src[i] === "\\") { i += 2; continue; }
+          if (src[i] === quote) break;
+          i++;
+        }
+        continue;
+      }
+      if (c === "{" || c === "[" || c === "(") { depth++; continue; }
+      if (c === "}" || c === "]" || c === ")") {
+        depth--;
+        if (depth === 0) break;
+        continue;
+      }
+      // 只在对象字面量的最外层（depth === 1）取键
+      if (depth === 1) {
+        const m = src.slice(i, i + 200).match(/^\s*(?:(["'`])([\w.$-]+)\1|([A-Za-z_$][\w$]*))\s*:/);
+        if (m) {
+          keys.add(m[2] || m[3]);
+          i += m[0].length - 1;
+        }
+      }
+    }
+    return keys;
+  };
+
   // 语言块内的键；leafOnly 时只取字符串值键（跳过嵌套对象名）
   const blockKeysFor = (t, names, leafOnly) => {
     const acc = new Set();
     for (const n of names) {
-      const re = new RegExp(`["']?${n}(?:[-_][A-Za-z]{2,4})?["']?\s*[:=]\s*{`, "gi");
+      /* ⚠️ 转义陷阱（2026-10-04 修）：这里**曾是**模板字面量里的单反斜杠 `\s`。
+       * 模板字面量会把无法识别的转义 `\s` 解析成裸 `s`，于是真正的正则变成
+       *     ["']?en(?:…)?["']?s*[:=]s*{
+       * 要求字面的 `s` 字符 —— `en: {` 永远匹配不上，循环体一次都没进，
+       * 于是 5 款产品的 en/zh 键集恒为空，报出一句「适配表未取到键（en=0 zh=0）」。
+       * 那句话把人指向适配表，真正的问题在正则上，方向完全错。
+       * 现改用字符类 [ \t] 与 \{，不依赖任何反斜杠转义，从根上消除这类坑。 */
+      const re = new RegExp(`["']?${n}(?:[-_][A-Za-z]{2,4})?["']?[ \\t]*[:=][ \\t]*\\{`, "gi");
       let m;
       while ((m = re.exec(t))) {
-        // 复用已验证的 collectBlockKeys（自己扫括号容易出错）
         for (const k of collectBlockKeys(t, m.index + m[0].length - 1)) {
           // leafOnly 暂不做过滤：Journal 顶层多嵌套对象，先取全量键再据实判断差异
+          acc.add(k);
         }
       }
     }
@@ -221,7 +332,13 @@ function runChecks(id, product, dir) {
   let literals = 0, sample = "";
   for (const f of codeFiles) {
     if (isI18nFile(f)) continue; // 字典文件天然含中文
-    if (/\.(test|spec)\./.test(f)) return;   // 测试夹具里的中文不是 UI 文案
+    /* 测试夹具里的中文不是 UI 文案 —— 跳过这个**文件**，不是跳过这个**产品**。
+     * ⚠️ 这里原来写的是 `return`。它在 for 循环里 return 的是 runChecks() 整个函数，
+     * 于是「本产品检查到此为止」—— MD 与 Write 因为 src/services/*.test.ts
+     * 在遍历顺序里靠前，第 5~12 条（含存储键命名空间、i18n 对账、reduced-motion
+     * 等）从来没跑过，报告里只显示 3 条。静默少跑比报错危险得多：
+     * 看起来「FAIL 0 / 3」像没问题，实际是七条闸门没执行。 */
+    if (/\.(test|spec)\./.test(f)) continue;
     const src = read(f).split("\n");
     let inBlock = false; // /* ... */ 跨行块注释：整段都不算 UI 文案
     src.forEach((line, i) => {
@@ -243,6 +360,36 @@ function runChecks(id, product, dir) {
       const hasCJK = strs.some((v) => /[一-鿿]{2,}/.test(v));
       const hasLatin = strs.some((v) => /[A-Za-z]{2,}/.test(v));
       if (hasCJK && hasLatin) return;
+      /* 跨行双语表：Compressor 的 errorText 把两种语言各占一行
+       *   "Failed to query profiles": [
+       *     "读取预设配置失败。",          ← 这一行只有中文，上面的 hasLatin 看不到
+       *     "Could not read the profiles.",
+       *   ],
+       * 逐行判定必然误报。⚠️ 别用「把两行挤成一行」来消除它 ——
+       * 那会让每条译文的 diff 变成一整行、评审时看不出改了什么。
+       * 所以向前看几行：紧邻的下一条非空行里有纯 Latin 串就算双语。 */
+      if (hasCJK && !hasLatin) {
+        /* 必须是「数组里紧邻的**纯**字符串字面量」这一种形状才放过：
+         *     "Failed to query profiles": [
+         *       "读取预设配置失败。",
+         *       "Could not read the profiles.",
+         *     ],
+         * 判据是整行只由「可选引号 + 内容 + 可选逗号」构成 —— 不带 `const x = `
+         * 这类前缀。⚠️ 这一点是刻意的：早先只判「下一行含 Latin 串」，于是
+         *     const 硬编码 = "转换失败，请重试";
+         *     const other = "someIdentifier";
+         * 这种真·硬编码中文会被放过（实测过），而 Compressor 恰恰是全文
+         * 内联中文最多的那一款 —— 放宽它等于在唯一需要严格的产品上放水。
+         */
+        const BARE_STRING = /^["'`][^"'`]*["'`]\s*,?$/;
+        const LATIN_STRING = /^["'`][^"'`]*[A-Za-z]{3,}[^"'`]*["'`]\s*,?$/;
+        for (let j = i + 1; j < Math.min(i + 4, src.length); j++) {
+          const nx = src[j].trim();
+          if (!nx || nx.startsWith("//") || nx.startsWith("/*")) continue;
+          if (BARE_STRING.test(nx)) { if (LATIN_STRING.test(nx)) return; break; }
+          break;
+        }
+      }
       if (strs.length && strs.every((v) => /^(zh|en|zh-CN|en-US)$/.test(v))) return;
       if (/["'`][^"'`]*[一-鿿]{2,}/.test(line)) { literals++; if (!sample) sample = `${basename(f)}:${i + 1}`; }
     });
@@ -250,20 +397,47 @@ function runChecks(id, product, dir) {
   add(id, "no-literal-user-strings", literals ? "FAIL" : "PASS",
     literals ? `${literals} 处疑似硬编码中文文案 e.g. ${sample}` : "无裸中文文案");
 
-  /* 5. storage-key-namespace：存储键必须 rocktier. 开头 */
+  /* 5. storage-key-namespace：存储键必须 rocktier. 开头
+   *
+   * 这里有两条互补的通路，因为**同一个键有两种写法**：
+   *   (a) 直接写字面量：localStorage.setItem("rocktier.theme", v)
+   *   (b) 先绑常量：const THEME_KEY = "rocktier.theme"；再用 localStorage.setItem(THEME_KEY, v)
+   * 只查 (a) 会漏掉一半 —— 9 个产品里恰好 6 个的主题/语言键都是 (b) 形式，
+   * 于是「rocktier-md-theme」「rocktier-ocr-theme」这类破命名一直没人拦。
+   *
+   * ⚠️ 这里曾有一个更宽的第二循环：扫**所有**含 theme/lang/locale 的字符串字面量。
+   * 它有两个毛病，且是同一个病根 —— **没有要求存储上下文**：
+   *   · 漏：(b) 形式的常量声明不是 API 调用，正则压根匹配不到；
+   *   · 误：i18n 字典键名也是字符串，于是 `t("theme")`、`"theme": "主题"`、
+   *         Tauri invoke 载荷的 `{ "lang": getUiLang() }` 全被判成存储键，
+   *         产品被迫把字典键改成 themeBtn 之类来躲（Pic2WebP 至今仍是
+   *         `themeBtn` 这种为躲检查而生的名字）。
+   * 所以改为两遍：先收集 `*KEY = "字面量"` 的声明，再看**同一个文件里该标识符
+   * 是否真的被当作 storage API 的实参**。两遍都命中才判违规。
+   * 「以 KEY 结尾」单独并不够 —— MD 的 `UNTITLED_KEY = "__untitled__"` 就是
+   * 反例：它是「尚未落盘」的哨兵**路径值**，只参与字符串比较，从不进 storage，
+   * 按单遍判定会误报（而且是逼着人改名的误报，正是这个坑的由来）。
+   */
   const badKeys = [];
   for (const f of codeFiles) {
     const src = read(f);
+    // (a) 直接传给 storage API 的字面量
     for (const m of src.matchAll(/(?:localStorage|sessionStorage)\s*\.\s*(?:getItem|setItem|removeItem)\s*\(\s*["'`]([^"'`]+)["'`]/g)) {
       if (!m[1].startsWith("rocktier.")) badKeys.push(m[1]);
     }
-    for (const m of src.matchAll(/["'`]([\w.-]*(?:theme|lang|locale)[\w.-]*)["'`]\s*\)?\s*[,)]/g)) {
-      /* 仅对明确的 theme/lang 键做命名空间检查 */
-      if (/^(theme|lang|locale|rj-theme|rk-lang)$/.test(m[1])) badKeys.push(m[1]);
+    // (b) 绑成键常量的字面量，且该常量确实被 storage API 消费
+    const storageArgs = new Set(
+      [...src.matchAll(/(?:localStorage|sessionStorage)\s*\.\s*(?:getItem|setItem|removeItem)\s*\(\s*([A-Za-z_$][\w$]*)/g)]
+        .map((m) => m[1])
+    );
+    for (const m of src.matchAll(/\b(?:const|let|var)\s+([A-Za-z_$][\w$]*KEY)\s*(?::\s*string\s*)?=\s*["'`]([^"'`]+)["'`]/g)) {
+      if (storageArgs.has(m[1]) && !m[2].startsWith("rocktier.")) badKeys.push(m[2]);
     }
   }
   add(id, "storage-key-namespace", badKeys.length ? "FAIL" : "PASS",
-    badKeys.length ? `非 rocktier. 前缀键 ${badKeys.length} 个: ${[...new Set(badKeys)].slice(0, 6).join(",")}` : "存储键均在 rocktier. 命名空间");
+    badKeys.length
+      ? `非 rocktier. 前缀键 ${badKeys.length} 个: ${[...new Set(badKeys)].slice(0, 6).join(",")}（命名空间用「.」分隔，不是「-」）`
+      : "存储键均在 rocktier. 命名空间");
 
   /* 6. html-lang-sync：必须随语言同步 document.documentElement.lang */
   const htmlSrc = [join(dir, "index.html"), ...feDirs.map((d) => join(d, "index.html"))].map(read).join("\n");
@@ -333,6 +507,30 @@ function runChecks(id, product, dir) {
 
   /* 9. rail-item-count：静态不可靠，标 NA */
   add(id, "rail-item-count", "NA", "需运行时/组件树分析，静态跳过 (shell=" + (product?.shell || "?") + ")");
+
+  /* ---------- 13-15. Windows 平台陷阱（独立模块，见 checks-windows.mjs）----------
+   *
+   * ⚠️ 这三条**此前从未被执行过**：checks-windows.mjs 从 2026-10-03 提交起就只有
+   * 导出函数、没有任何调用方，family.json 里却已把 ciChecks 列成 15 条。
+   * 「契约里声明了」与「闸门真的会跑」是两件事 —— 这里补上后者。
+   *
+   * 三条的共性：macOS 完全正常，只有 Windows 暴露，且**静默失败**
+   *（不报错、不崩溃、只是点了没反应），所以跨平台 CI 抓不到，只能靠契约拦。
+   *
+   * 用动态 import：产品仓内的分发副本可能还没同步这个文件。缺文件时明确报
+   * FAIL（而不是静默跳过）—— 少跑闸门比报错危险，前面 `return` 那次已经教过。
+   */
+  try {
+    const w = await import(pathToFileURL(join(CONTRACT_DIR, "tools", "checks-windows.mjs")).href);
+    w.reset();
+    w.checkAboutMetadata(dir);
+    w.checkMenuActionHandlers(dir);
+    w.checkErrorLocalized(dir);
+    for (const r of w.collect()) add(id, r.id, r.status, r.detail);
+  } catch (e) {
+    add(id, "windows-checks-present", "FAIL",
+      `无法加载 checks-windows.mjs（应有 ${join(CONTRACT_DIR, "tools", "checks-windows.mjs")}）：${e.message}`);
+  }
 }
 
 /* ---------- 主流程 ---------- */
@@ -340,17 +538,17 @@ const products = CONTRACT.products || [];
 if (selfMode) {
   // 单产品模式：直接查当前产品目录（CI 内使用）
   const p = products.find((x) => x.id === only) || null;
-  runChecks(only || basename(familyRoot), p, familyRoot);
+  await runChecks(only || basename(familyRoot), p, familyRoot);
 } else {
   for (const p of products) {
     if (only && p.id !== only) continue;
-    runChecks(p.id, p, join(familyRoot, LOCAL_DIRS[p.id] || p.id));
+    await runChecks(p.id, p, join(familyRoot, LOCAL_DIRS[p.id] || p.id));
   }
 }
 // 第 9 款 Compressor：契约若已收录则由上面的循环覆盖，仅在契约未列时补扫，避免重复计两遍
 const knownIds = new Set(products.map((p) => p.id));
 if (!knownIds.has("compressor") && LOCAL_DIRS.compressor && (!only || only === "compressor")) {
-  runChecks("compressor", null, join(familyRoot, LOCAL_DIRS.compressor));
+  await runChecks("compressor", null, join(familyRoot, LOCAL_DIRS.compressor));
 }
 
 /* ---------- 输出 ---------- */

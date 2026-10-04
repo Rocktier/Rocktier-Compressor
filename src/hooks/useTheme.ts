@@ -5,13 +5,18 @@ export type ThemeMode = "auto" | "light" | "dark";
 type Resolved = "light" | "dark";
 
 /** 家族前缀。Compressor 此前完全没有主题系统，这是第一个键，不存在迁移问题。 */
-const THEME_KEY = "rocktier-compressor-theme";
+const THEME_KEY = "rocktier.theme";
+// 2026-10-04 键改名：此前 "rocktier-compressor-theme" 不在家族命名空间里。
+// Compressor 的主题系统那时刚加、用户存量极少，但读取处仍回落旧键 —— 白写一行，换来
+// 「改名永远不丢用户偏好」这条家族规矩不必再逐案讨论。
+const THEME_KEY_LEGACY = "rocktier-compressor-theme";
 const CYCLE: readonly ThemeMode[] = ["auto", "light", "dark"];
 
 function readMode(): ThemeMode {
   if (typeof window === "undefined") return "auto";
   try {
-    const stored = localStorage.getItem(THEME_KEY) as ThemeMode | null;
+    const stored = (localStorage.getItem(THEME_KEY) ??
+      localStorage.getItem(THEME_KEY_LEGACY)) as ThemeMode | null;
     if (stored === "auto" || stored === "light" || stored === "dark") return stored;
   } catch {
     // 隐私模式 / 存储被禁用：偏好读取失败不能把整个 App 渲染打挂
