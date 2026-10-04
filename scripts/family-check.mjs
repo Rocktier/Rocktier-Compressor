@@ -397,6 +397,49 @@ async function runChecks(id, product, dir) {
   add(id, "no-literal-user-strings", literals ? "FAIL" : "PASS",
     literals ? `${literals} 处疑似硬编码中文文案 e.g. ${sample}` : "无裸中文文案");
 
+  /* 4b. first-frame-storage-key：index.html 内联首帧脚本的存储键必须与运行时一致。
+   *
+   * 为什么单独一条：键改名只改了运行时代码，`index.html` 里那段**内联**脚本
+   * （必须在样式解析前定好 data-theme，否则先画一帧黑底再跳变）读的还是旧键。
+   * 后果不是报错而是**视觉**：老用户看到「先按旧键画首帧、React 挂载后跳成
+   * 另一种」，一闪而过，很难归因；而闸门此前对 index.html 一无所查。
+   *
+   * 2026-10-04 实测：6 仓（PDF / MD / Write / CAD / OCR / Compressor）在键改名
+   * 之后首帧仍读旧键 —— 正是这条缺失的检查该拦的。
+   *
+   * 判据：首帧脚本里 getItem/setItem 的键 ⊆ 运行时用的键集合。
+   * 允许出现**旧键**（回落），不允许出现运行时压根不读的键 —— 后者是纯粹的错配。
+   */
+  const firstFrameIssues = [];
+  {
+    const htmlPaths = [join(dir, "index.html"), ...feDirs.map((d) => join(d, "index.html"))]
+      .filter((p) => existsSync(p));
+    // 运行时真正读/写的键：收集全仓的 rocktier.* 字面量（含 legacy 回落键）
+    const runtimeKeys = new Set();
+    for (const f of codeFiles) {
+      for (const m of read(f).matchAll(/["'`](rocktier\.[\w.-]+)["'`]/g)) runtimeKeys.add(m[1]);
+    }
+    for (const p of htmlPaths) {
+      const html = read(p);
+      // 只看 <script> 块内的内联脚本（外部 src 的不在本仓，读不到）
+      for (const block of html.match(/<script(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/script>/gi) || []) {
+        for (const m of block[1].matchAll(/(?:get|set|remove)Item\(\s*["'`]([^"'`]+)["'`]/g)) {
+          const key = m[1];
+          if (key.startsWith("rocktier.")) continue; // 已是新命名空间，无需比对
+          if (key.startsWith("rocktier-")) {
+            firstFrameIssues.push(`${basename(p)}: 首帧读 ${key}，运行时已改用 rocktier. 命名空间`);
+          } else if (!key.startsWith("rocktier.")) {
+            firstFrameIssues.push(`${basename(p)}: 首帧键 ${key} 不在 rocktier. 命名空间`);
+          }
+        }
+      }
+    }
+  }
+  add(id, "first-frame-storage-key", firstFrameIssues.length ? "FAIL" : "PASS",
+    firstFrameIssues.length
+      ? [...new Set(firstFrameIssues)].slice(0, 4).join("；")
+      : `首帧内联脚本的存储键与运行时一致（扫 ${feDirs.length} 处 index.html）`);
+
   /* 5. storage-key-namespace：存储键必须 rocktier. 开头
    *
    * 这里有两条互补的通路，因为**同一个键有两种写法**：
@@ -421,19 +464,129 @@ async function runChecks(id, product, dir) {
   const badKeys = [];
   for (const f of codeFiles) {
     const src = read(f);
-    // (a) 直接传给 storage API 的字面量
-    for (const m of src.matchAll(/(?:localStorage|sessionStorage)\s*\.\s*(?:getItem|setItem|removeItem)\s*\(\s*["'`]([^"'`]+)["'`]/g)) {
-      if (!m[1].startsWith("rocktier.")) badKeys.push(m[1]);
+    /* (a) 直接传给 storage API 的字面量。
+     *
+     * `||` / `??` 链上**右侧**的那个键是刻意的旧键回落，不判违规 ——
+     * OCR 的 `getItem("rocktier.lang") || getItem("rocktier-ocr-lang")` 就是这个形状，
+     * 而旧键回落正是「改名不丢用户偏好」这条家族规矩的实现方式。
+     * 左侧那个（主键）仍会被拦。
+     * ⚠️ 第一版这里没排除回落，导致把 OCR 那行判成破命名；而真正的破命名
+     * （把旧键当主键）反而因为同样的原因被放过 —— 判反了。 */
+    /* 把每个 storage 调用的**整个参数表达式**切出来，在表达式层面判定。
+     *
+     * 前一版按「引号闭合后是否紧跟 ||/??」判断回落，判反了：
+     *   A || "en"          里的 "en" 紧跟 || → 被当成回落豁免
+     *   A || B || "en"     里的 B 后面是 || → 也被豁免 ← 真正的旧键被放过
+     * 正确口径：**一条 `||`/`??` 链上只有最左边那个键是主键**，其余全是回落候选。
+     * 合法形态是新键在左、旧键在右；把旧键挪到左边（当主键）就该被拦。
+     */
+    /* 抓完整的 `A(...) || B(...) || C` 表达式 —— 参数里的右括号必须按**嵌套深度**
+     * 配平，否则 `getItem(f(x)) || getItem(g)` 会在第一个 `)` 处截断，
+     * 把后面的调用整段漏掉（实测踩过：OCR 那行 `getItem(A) || getItem(B) || "en"`
+     * 被截成两个独立调用，于是 B 被当成主键，合法回落被判成违规）。
+     *
+     * 做法：从 `localStorage` 出发逐字符扫，跳过嵌套的 ()/[]/''/``，
+     * 一直到**括号深度回到 0 之后**再吃掉 || / ?? 链上的其它调用。
+     */
+    const CALL = /(?:localStorage|sessionStorage)\s*\.\s*(?:getItem|setItem|removeItem)\s*\(/g;
+    /** 从 src[i]（指向 '(' 之后）起吃掉一次调用，返回结束位置（该调用之后的位置）。 */
+    const endOfCall = (src, i) => {
+      let depth = 1;
+      while (i < src.length && depth > 0) {
+        const c = src[i];
+        if (c === "(" || c === "[" || c === "{") depth++;
+        else if (c === ")" || c === "]" || c === "}") depth--;
+        else if (c === '"' || c === "'" || c === "`") {
+          const q = c;
+          i++;
+          while (i < src.length && src[i] !== q) i += src[i] === "\\" ? 2 : 1;
+        }
+        i++;
+      }
+      return i;
+    };
+    /* 处理**一条完整的取值表达式**：`A(...) || B(...) || "x"`。
+     *
+     * 从该表达式的**起点**扫到链尾，一次性收集全部键字面量 —— 而不是每个
+     * `getItem` 各判一次。后者有个实测踩到的坑：`getItem(A) || getItem(B) || "en"`
+     * 里的 B 是合法回落，可单点扫描时 B 会被当成独立调用的主键而误报；
+     * 更糟的是把同一个表达式的两次扫描当成两次独立违规。
+     * 判据：整条链上**第一个**键是主键，其余为回落候选。
+     */
+    for (const m of src.matchAll(CALL)) {
+      // 从调用起点回退，确认它前面不是 `||`/`??`（是的话它属于上一条链，已被处理）
+      const before = src.slice(Math.max(0, m.index - 16), m.index);
+      if (/\|\|\s*$|\?\?\s*$/.test(before)) continue;
+
+      let expr = "";
+      let i = m.index + m[0].length - 1; // 指向这次调用的 '('
+      for (let guard = 0; guard < 16; guard++) {
+        const end = endOfCall(src, i + 1);
+        expr += src.slice(guard === 0 ? m.index : i, end);
+        i = end;
+        // 后面是否还接着 `||`/`??` + 另一个 storage 调用
+        const link = src.slice(i).match(/^\s*(\|\||\?\?)\s*(?=(?:localStorage|sessionStorage)\s*\.)/);
+        if (!link) break;
+        i += link[0].length;
+        // 跳到下一个调用的 '('
+        const next = src.slice(i).match(/^(?:localStorage|sessionStorage)\s*\.\s*(?:getItem|setItem|removeItem)\s*\(/);
+        if (!next) break;
+        i += next[0].length - 1;
+      }
+      if (!expr) continue;
+      /* 取「键位置」上的字面量 —— 即紧跟在 getItem/setItem/removeItem 的
+       * `(` 之后那个参数。
+       *
+       * ⚠️ 不能扫整条表达式里的所有字面量：`setItem(TYPEWRITER_KEY, x ? "1" : "0")`
+       * 里 `"1"` 是**值**不是键。早期版本用「表达式里第一个 rocktier* 字面量，
+       * 找不到就取第一个字面量」，于是 Write 的 `setItem(…, "1")` 被报成
+       * 「非 rocktier. 前缀键 1」—— 值被当成键了。 */
+      const keyLiterals = [];
+      let scan = expr;
+      while (scan.length) {
+        const at = scan.search(/(?:localStorage|sessionStorage)\s*\.\s*(?:getItem|setItem|removeItem)\s*\(/);
+        if (at < 0) break;
+        const open = scan.indexOf("(", at);
+        const lit = scan.slice(open + 1).match(/^\s*["'`]([^"'`]+)["'`]/);
+        if (lit) keyLiterals.push(lit[1]);
+        // 跳过这次调用
+        const rest = scan.slice(open + 1);
+        const endOfCall = (s, i) => {
+          let d = 1;
+          while (i < s.length && d > 0) {
+            const c = s[i];
+            if (c === "(" || c === "[" || c === "{") d++;
+            else if (c === ")" || c === "]" || c === "}") d--;
+            else if (c === '"' || c === "'" || c === "`") {
+              const q = c; i++;
+              while (i < s.length && s[i] !== q) i += s[i] === "\\" ? 2 : 1;
+            }
+            i++;
+          }
+          return i;
+        };
+        const e = endOfCall(rest, 0);
+        scan = " ".repeat(open + 1) + rest.slice(e);
+      }
+      const primary = keyLiterals.find((k) => /^rocktier[-_]?/.test(k)) ?? keyLiterals[0];
+      if (primary && !primary.startsWith("rocktier.")) badKeys.push(primary);
     }
-    // (b) 绑成键常量的字面量，且该常量确实被 storage API 消费
+    /* (b) 绑成键常量的字面量，且该常量确实被 storage API 消费。
+     *
+     * ⚠️ 变量名带 `_LEGACY` 后缀的是**有意保留的旧键回落**，不算违规。
+     * 第一次写这条闸门时漏了这个后缀，结果 OCR 的
+     * `LANG_KEY_LEGACY = "rocktier-ocr-lang"` 被判成破命名 ——
+     * 而那正是「改名不丢用户偏好」这条家族规矩的实现本身。
+     * 判据从「以 KEY 结尾」收紧为「以 KEY 结尾且**不是** _LEGACY 结尾」。 */
     const storageArgs = new Set(
       [...src.matchAll(/(?:localStorage|sessionStorage)\s*\.\s*(?:getItem|setItem|removeItem)\s*\(\s*([A-Za-z_$][\w$]*)/g)]
         .map((m) => m[1])
     );
     for (const m of src.matchAll(/\b(?:const|let|var)\s+([A-Za-z_$][\w$]*KEY)\s*(?::\s*string\s*)?=\s*["'`]([^"'`]+)["'`]/g)) {
+      if (/_LEGACY$/.test(m[1])) continue;
       if (storageArgs.has(m[1]) && !m[2].startsWith("rocktier.")) badKeys.push(m[2]);
     }
-  }
+      }
   add(id, "storage-key-namespace", badKeys.length ? "FAIL" : "PASS",
     badKeys.length
       ? `非 rocktier. 前缀键 ${badKeys.length} 个: ${[...new Set(badKeys)].slice(0, 6).join(",")}（命名空间用「.」分隔，不是「-」）`
