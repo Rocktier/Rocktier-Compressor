@@ -75,6 +75,29 @@ const PROFILE_I18N: Record<string, { zh: [string, string]; en: [string, string] 
   maximum: { zh: ["极限", "最小文件，质量可损"], en: ["Maximum", "Smallest file, lossy"] },
 };
 
+/** 拖放区图标：几何线条内联 SVG，随主题变色（家族图标规范 §8）。
+ *  原为 48px 文字字符 "↓"，在 Windows 上字形不可控且无 aria 语义。 */
+function DropzoneGlyph() {
+  return (
+    <svg
+      className="dropzone-icon"
+      width="44"
+      height="44"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.25"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <path d="M12 3v11" />
+      <path d="M8 10.5 12 14.5 16 10.5" />
+      <path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" />
+    </svg>
+  );
+}
 export default function App() {
   const [lang, setLang] = useState<Lang>(() => {
     const saved = localStorage.getItem("rocktier.lang");
@@ -415,21 +438,25 @@ export default function App() {
             )}
           </button>
           <div className="lang-toggle">
-            <button className={lang === "zh" ? "active" : ""} onClick={() => setLang("zh")}>中文</button>
             <button className={lang === "en" ? "active" : ""} onClick={() => setLang("en")}>EN</button>
+            <button className={lang === "zh" ? "active" : ""} onClick={() => setLang("zh")}>中文</button>
           </div>
         </div>
       </header>
 
       {files.length === 0 ? (
         <main className="content">
-          <div className={"dropzone" + (dragOver ? " dragover" : "")} onClick={openAdd}>
-            <div className="dropzone-icon">↓</div>
-            <p className="dropzone-title">{t("拖放文件到这里开始压缩", "Drop files here to start compressing")}</p>
-            <p className="dropzone-subtitle">
+          <button
+            type="button"
+            className={"dropzone" + (dragOver ? " dragover" : "")}
+            onClick={openAdd}
+          >
+            <DropzoneGlyph />
+            <span className="dropzone-title">{t("拖放文件到这里开始压缩", "Drop files here to start compressing")}</span>
+            <span className="dropzone-subtitle">
               {t("支持 PDF, Word, Excel, PowerPoint, 图片", "Supports PDF, Word, Excel, PowerPoint, Images")}
-            </p>
-          </div>
+            </span>
+          </button>
         </main>
       ) : (
         <main className="content with-list">
