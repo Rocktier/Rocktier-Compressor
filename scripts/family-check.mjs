@@ -3,7 +3,7 @@
  * Rocktier family:check — 家族契约闸门
  *
  * 规范来源：
- *   - docs/rocktier/family.json      (机器可读契约 + ciChecks 12 条)
+ *   - docs/rocktier/family.json      (机器可读契约 + ciChecks 16 条)
  *   - docs/ROCKTIER-UI规范-v2.md §11.2 (闸门必须包含的 8 项)
  *   - docs/rocktier/DECISIONS.md §5.3 (每条检查「挡住什么」)
  *
@@ -147,7 +147,7 @@ const results = [];
 const add = (product, check, status, detail) =>
   results.push({ product, check, status, detail: String(detail || "").slice(0, 220) });
 
-/* ---------- 12 条 ciChecks ---------- */
+/* ---------- 第 1-12 条（含 4b）与 13-15 条（checks-windows.mjs）---------- */
 /* async：要 await checks-windows.mjs 的动态 import（第 13-15 条）*/
 async function runChecks(id, product, dir) {
   if (!existsSync(dir)) { add(id, "repo-present", "FAIL", `目录不存在: ${dir}`); return; }

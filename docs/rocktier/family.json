@@ -487,7 +487,7 @@
       "license": "TBD（README 曾写 Commercial，未定）",
       "pricing": {
         "store": 4.99,
-          "direct": 9.99
+        "direct": 9.99
       },
       "status": "v0.1.2-released（2026-10-02 五包）",
       "base": [
@@ -597,6 +597,7 @@
     "light-theme-token-parity",
     "i18n-key-reconciliation",
     "no-literal-user-strings",
+    "first-frame-storage-key",
     "storage-key-namespace",
     "html-lang-sync",
     "font-theme-focus-tabularnums-present",
@@ -609,5 +610,5 @@
     "menu-action-has-frontend-handler",
     "error-text-localized"
   ],
-  "$windows_checks_comment": "第13-15 条来自 2026-10-03 Windows 商店审核的一批真实问题。共性：macOS 完全正常，只有 Windows 暴露，且静默失败（不报错、不崩溃、只是点了没反应），因此跨平台 CI 抓不到，只能靠契约闸门拦。实现见 docs/rocktier/tools/checks-windows.mjs。"
+  "$windows_checks_comment": "第 13-15 条来自 2026-10-03 Windows 商店审核的一批真实问题；第 16 条（first-frame-storage-key）来自 2026-10-04 的键改名收尾。共性：macOS 完全正常，只有 Windows 暴露，且静默失败（不报错、不崩溃、只是点了没反应），因此跨平台 CI 抓不到，只能靠契约闸门拦。实现见 docs/rocktier/tools/checks-windows.mjs。"
 }
