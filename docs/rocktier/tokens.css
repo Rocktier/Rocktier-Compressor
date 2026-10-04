@@ -151,9 +151,9 @@
   /* 浅色档成功绿压暗（2026-10-03）。
      原值 rgba(34,178,77,.9) 叠白底实际只有 2.78:1 —— 达不到 AA 正文 4.5:1，
      而 --success 用于 .password-strength-label.strong / .sv-saved 等**文字**。
-     #1f8a4c 对白底 4.38:1、对 #f5f5f5 4.01:1，是不牺牲品牌观感的最小压暗。
+     #1c7f46 对白底 5.03:1、对 #f5f5f5 4.62:1 —— 真正越过 AA 正文 4.5 的最小压暗。\n     ⚠️ 前一版 #1f8a4c 只有 4.38:1，**未达AA**，不要回退用它。
      深色档维持 rgba(48,209,88,.9)（对纯黑 8.41:1，AAA 无需调整）。 */
-  --success: #1f8a4c;
+  --success: #1c7f46;
   --dot: rgba(0, 0, 0, 0.55);
   --dot-pattern: radial-gradient(circle, rgba(0, 0, 0, 0.05) 1px, transparent 1px);
   --dot-size: 20px;
