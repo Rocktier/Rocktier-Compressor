@@ -86,6 +86,8 @@ body {
   height: 8px;
   border-radius: 50%;
   background: var(--brand);
+  /* 家族签名：圆点脉动（keyframes 与时长取自 tokens.css 母版 .dot-live） */
+  animation: dotpulse 3s var(--ease) infinite;
   /* 子元素不拦截鼠标事件，否则会打断 data-tauri-drag-region 的窗口拖动 */
   pointer-events: none;
 }
