@@ -178,19 +178,11 @@ jobs:
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
         run: npm run tauri:build
-      # ROCKTIER_CHANNEL=store turns off the app's own trial and activation
-      # entirely: the Store sold this copy and the Store knows it. Leaving our
-      # paywall in would pull in Microsoft's third-party-purchase rules (10.8.2)
-      # and its disclosure requirements (10.8.4) for no reason.
-      #
-      # Compressor's ENFORCE is currently false (官网不可购), so this is
-      # belt-and-braces — but flipping ENFORCE later without this line would
-      # ship a paywall into the Store build with nothing to catch it.
-      # The MSI + NSIS step above keeps the default `direct` channel.
-      - name: Build MSIX (for Microsoft Store)
+        # MSIX 直装走 direct 付费墙（微软商店渠道已弃用，2026-10-05 终裁 C3）。
+        # 若未来恢复商店渠道：本步需加 env ROCKTIER_CHANNEL: store（10.8.2/10.8.4）。
+      - name: Build MSIX
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          ROCKTIER_CHANNEL: store
         run: npm run tauri:windows:build
       - uses: actions/upload-artifact@v4
         with:
