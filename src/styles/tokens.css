@@ -27,6 +27,9 @@
   --accent-brand: var(--red);
   --danger: #ff4a3d;
   --warning: #cc3a30;
+  /* 成功 = 绿，保留（2026-10-05 最终裁定，此前在「去绿 / 保留绿」之间反复过三次，
+     至此定案：不再改）。对纯黑 8.42:1，深色档无需调整，沿用原值。
+     若将来有人再提「去绿」，请先看浅色档那段注释里的往复记录。 */
   --success: rgba(48, 209, 88, 0.9);
   --dot: rgba(255, 255, 255, 0.55);
   --dot-pattern: radial-gradient(circle, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
@@ -76,7 +79,11 @@
   --mono: "Geist Mono", "SF Mono", "JetBrains Mono", "Fira Code", ui-monospace, Menlo, monospace;
   --dur-normal: 0.25s;
   --text: rgba(255, 255, 255, 0.95);
-  --text-muted: rgba(255, 255, 255, 0.30);
+  /* --text-muted 深色档原为 rgba(255,255,255,.30) = **2.46:1**，远低于 AA 正文 4.5:1。
+     而它被**全部 9 个产品**引用（30 处 var()），只有 Compressor 覆盖了它 ——
+     也就是说另外 8 个产品一直在渲染 2.46:1 的「次要文字」。
+     改为 0.58，与同档 --text-tertiary 一致（6.91:1），沿用家族既有阶梯而非另立一套。 */
+  --text-muted: rgba(255, 255, 255, 0.58);
   --brand: #ff4a3d;
   --text2: rgba(255, 255, 255, 0.72);
   --border-mid: rgba(255, 255, 255, 0.10);
@@ -85,7 +92,10 @@
   --bg-floating: #141414;
   --bg-surface: #0a0a0a;
   --bg: #000000;
-  --bg2: #f5f5f5;
+  /* --bg2 深色档原为 #f5f5f5 —— 把**浅色档的值**放进了深色块（复制粘贴遗留）。
+     浅色档 --bg2 = #f5f5f5 是对的；深色档应是暗色次级背景，
+     改用与 --bg-secondary 同值 #0a0a0a。 */
+  --bg2: #0a0a0a;
   --code-comment: #7d8590;
   --code-keyword: #ff7b72;
   --code-function: #d2a8ff;
@@ -110,8 +120,12 @@
   --sidebar-w: 260px;
   --accent-warn: #d98a00;
   --dim-text: rgba(255, 255, 255, 0.30);
-  --scrollbar-thumb: rgba(0, 0, 0, 0.18);
-  --brand-dot: #181818;
+  /* 深色档这两个原值都**看不见**，且方向正好相反（像是在两个块之间贴错了）：
+     --scrollbar-thumb rgba(0,0,0,.18) 对纯黑 = 1.00:1（完全不可见）
+     --brand-dot        #181818        对纯黑 = 1.18:1（几乎不可见）
+   正确方向：深色底上该用**浅色**前景。浅色档那两处同样贴反了，一并对调。 */
+  --scrollbar-thumb: rgba(255, 255, 255, 0.18);
+  --brand-dot: #e8e8e8;
   --focus-glow: rgba(255, 255, 255, 0.14);
   --brand-hover: #cc3a30;
 }
@@ -146,13 +160,28 @@
   --red-soft: #ff6b5e;
   --on-brand: #ffffff;
   --accent-brand: var(--red);
-  --danger: #e64537;
+  /* 浅色档 --danger 原为 #e64537 = 白底 3.98:1、#f5f5f5 3.65:1，达不到 AA 正文 4.5:1。
+     而 --danger 被**7 个产品、23 处当文字色**用，且多为小字：
+       Pic2WebP .retry-all        10px  ← 单文件失败后唯一的退路
+       Sign     .verify-checks li.bad  12.5px ← 「签名无效」的每一条校验项
+       Pic2WebP .license-error / Journal .password-strength-label.weak 等
+     #cc3527 = 白底 5.11:1、#f5f5f5 4.69:1，是实测最小的达标值。
+     与同档 --warning #c0392b（5.44:1）同一档位，色相差极小，不影响「红=错误」的语义。
+     深色档维持 #ff4a3d（对纯黑 6.30:1，无需调整）。
+     注意 **--red 不改** —— 它是品牌色（--accent-brand: var(--red)），改了会动品牌观感。*/
+  --danger: #cc3527;
   --warning: #c0392b;
-  /* 浅色档成功绿压暗（2026-10-03）。
-     原值 rgba(34,178,77,.9) 叠白底实际只有 2.78:1 —— 达不到 AA 正文 4.5:1，
-     而 --success 用于 .password-strength-label.strong / .sv-saved 等**文字**。
-     #1c7f46 对白底 5.03:1、对 #f5f5f5 4.62:1 —— 真正越过 AA 正文 4.5 的最小压暗。\n     ⚠️ 前一版 #1f8a4c 只有 4.38:1，**未达AA**，不要回退用它。
-     深色档维持 rgba(48,209,88,.9)（对纯黑 8.41:1，AAA 无需调整）。 */
+  /* 浅色档成功绿 = #1c7f46（2026-10-05 最终裁定：保留绿，只修对比度）。
+     对白底 5.03:1、对 --bg-secondary #f5f5f5 4.62:1，两者都达AA 正文 4.5:1。
+
+     ⚠️ 这个值被反复改过三轮，往复记录在此，避免第四次：
+       10-02 拍板 A「保留绿」→ 值 rgba(34,178,77,.9)，白底仅 2.78:1
+       10-03 压暗到 #1f8a4c —— 白底 4.38:1，仍差 0.12 不达标（当时误判为「接近达标」放行）
+       10-05 拍板「去绿」（深 #ffffff / 浅 #000000），靠 ✓ 形状与文案承载语义
+       10-05 **最终裁定：回到绿**，但不是原值，而是达AA 的 #1c7f46
+     保留绿的理由：--danger 仍是红，若成功也去黑，「失败」会比「成功」更显眼；
+     且 --success 的13 处使用点多数是 10–12px 小字（Sign 的「签名有效」横幅、
+     OCR 完成提示、Pic2WebP 的「节省 4.2 MB」），绿必须压到真达 AA 才可用。*/
   --success: #1c7f46;
   --dot: rgba(0, 0, 0, 0.55);
   --dot-pattern: radial-gradient(circle, rgba(0, 0, 0, 0.05) 1px, transparent 1px);
@@ -236,8 +265,9 @@
   --sidebar-w: 260px;
   --accent-warn: #d98a00;
   --dim-text: rgba(0, 0, 0, 0.58);
+  /* 浅色档：深色前景才看得见（原先两处与深色档贴反了） */
   --scrollbar-thumb: rgba(0, 0, 0, 0.18);
-  --brand-dot: #e8e8e8;
+  --brand-dot: #181818;
   --focus-glow: rgba(0, 0, 0, 0.12);
   --brand-hover: #cc3a30;
 }
