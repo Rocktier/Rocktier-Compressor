@@ -1,0 +1,66 @@
+name: Notify family gate
+
+# 产品仓push 后，触发**私有台账仓** rocktier-docs 的中央契约闸门。
+#
+# ## 为什么需要这个
+#
+# 契约闸门只有一个执行点 —— 在私有台账仓里（它 checkout 9 个公开产品统一检）。
+# 2026-10-05 首次上线时暴露一个短板：产品仓 push **不触发**台账仓的 workflow，
+# 所以产品单方面改动只能等台账仓的 cron 才发现。实测撞到过：一次闸门 FAIL 6 项
+# `tokens-snapshot-diff`，原因就是本仓 tokens 与母版不一致，而 push 无人通知。
+#
+# 本 workflow 补上这条通知，使「产品 push → 中央闸门」成立。
+#
+# ## 为什么需要一个凭证
+#
+# 台账仓是**私有**的，9 个产品仓都是**公开**的。要让公开仓的 workflow 触发
+# 私有仓的 workflow，必须持有一个对该仓有 `Actions: read-write` 的凭证。
+# 反方向（私有仓 → 公开仓）不需要凭证 —— 中央闸门正是靠这个不对称才得以成立。
+#
+# ## 凭证的最小权限
+#
+# 用 **fine-grained personal access token**，只勾选：
+#   - Resource owner: Rocktier（组织）
+#   - Repository access: Only select repositories → 只选 `rocktier-docs`
+#   - Permissions: Actions → Read and write
+#   - **其余权限一律不勾**（Contents / Issues / PRs / Workflows 都不需要）
+# 存为仓内secret `FAMILY_GATE_TOKEN`。
+#
+# ## 为什么这个 workflow 不会造成凭证泄露
+#
+# GitHub **不会**把 secrets 传给 fork 触发的 `pull_request` workflow。
+# 本 workflow 只在 `push` 到本仓分支时运行 —— 即只有已有写权限的人能触���。
+# 且 token 只对 `rocktier-docs` 一个仓有 Actions 权限，读不到产品源码，
+# 也读不到契约内容（定价、授权码）。
+#
+# ## 没配凭证会怎样
+#
+# 空操作并给出提示，由台账仓的 cron（每 15 分钟）兜底。
+# 所以**不配也能跑**，只是延迟变大。
+
+on:
+  push:
+    branches: ["main"]
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Dispatch family-contract workflow
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.FAMILY_GATE_TOKEN }}
+          LEDGER: Rocktier/rocktier-docs
+        run: |
+          set -uo pipefail
+          if [ -z "$GH_TOKEN" ]; then
+            echo "::notice::未配置 FAMILY_GATE_TOKEN —— 跳过派发。"
+            echo "::notice::中央闸门仍会由台账仓的 cron（每 15 分钟）兜底。"
+            exit 0
+          fi
+          if gh workflow run family-contract.yml --repo "$LEDGER" 2>/tmp/err.txt; then
+            echo "✅ 已触发 $LEDGER 的 family-contract"
+          else
+            echo "::warning::触发失败（将由台账仓 cron 兜底）："
+            sed 's/^/  /' /tmp/err.txt | head -5
+          fi
