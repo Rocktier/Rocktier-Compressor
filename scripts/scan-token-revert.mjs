@@ -10,6 +10,7 @@
 // 退出码 0 = 无回退；1 = 有回退
 
 import { readFileSync, readdirSync, statSync } from "node:fs";
+import { execFileSync } from "node:child_process";
 import { join, relative } from "node:path";
 
 const root = process.argv[2] || ".";
@@ -76,11 +77,55 @@ console.log(
   `母版 ${MASTER}  :root ${master.root.size} 令牌 / light ${master.light.size} 令牌\n`,
 );
 
+/**
+ * 列出该产品里**被 git 跟踪的**样式文件。
+ *
+ * ## 为什么不用 walk()递归目录
+ *
+ * 原来只排除 node_modules / dist / target / .git 四个目录，其余全扫。
+ * 于是本地会把**gitignore 的未跟踪文件**也算进来，与 CI 报出不同的数字：
+ * 实测本地 72 处、CI 61 处，差额 11 处全部来自 CAD Viewer 里一个遗留的
+ * subagent worktree（`.meituan-catpaw/…/subagent-worktree-aab44c27/src/app.css`，
+ * 508K、已 gitignore、未跟踪）。CI 是 `--depth 1` 浅克隆，看不到它。
+ *
+ * 数字对不上比数字不准更糟 —— 会让人以为是规则或代码变了。
+ * CI 只看得到已跟踪文件，所以**以 git 为准**：本地也只扫已跟踪文件。
+ *
+ * 用 `git ls-files` 而不是解析 .gitignore：ignore 语义复杂（否定规则、
+ * 嵌套 .gitignore、目录级规则），而 ls-files 直接给出「git 实际会交付什么」。
+ *
+ * 不是 git 仓时退回 walk()，并保持旧行为 —— 但会在报告里标出来，
+ * 避免静默地把「扫少了」当成「没回退」。
+ */
+function trackedStyleFiles(dir) {
+  let out;
+  try {
+    out = execFileSync("git", ["-C", dir, "ls-files", "-z"], {
+      encoding: "utf8",
+      maxBuffer: 64 * 1024 * 1024,
+      stdio: ["ignore", "pipe", "ignore"],
+    });
+  } catch {
+    return { files: walk(dir), tracked: false };
+  }
+  const files = out
+    .split("\0")
+    .filter(Boolean)
+    .filter((p) => /\.(css|html|svelte)$/.test(p))
+    .map((p) => join(dir, p));
+  return { files, tracked: true };
+}
+
 function walk(dir, acc = []) {
   for (const e of readdirSync(dir)) {
     if (e === "node_modules" || e === "dist" || e === "target" || e === ".git") continue;
     const p = join(dir, e);
-    const st = statSync(p);
+    let st;
+    try {
+      st = statSync(p);
+    } catch {
+      continue; // 断链的符号链接等
+    }
     if (st.isDirectory()) walk(p, acc);
     else if (/\.(css|html|svelte)$/.test(e)) acc.push(p);
   }
@@ -93,10 +138,14 @@ const report = [];
 for (const [id, rel] of Object.entries(REPOS)) {
   const dir = join(root, rel);
   let files;
+  let tracked = true;
   try {
-    files = walk(dir);
+    ({ files, tracked } = trackedStyleFiles(dir));
   } catch {
     continue;
+  }
+  if (!tracked) {
+    console.log(`  ⚠ ${id.padEnd(11)} 不是 git 仓，已退回目录递归（数字可能与 CI 不一致）`);
   }
   for (const f of files) {
     if (f.endsWith(join("rocktier", "tokens.css")) || f.endsWith("src" + "\\styles\\tokens.css")) continue;
