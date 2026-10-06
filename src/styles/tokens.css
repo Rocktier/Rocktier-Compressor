@@ -30,7 +30,7 @@
   /* 成功 = 绿，保留（2026-10-05 最终裁定，此前在「去绿 / 保留绿」之间反复过三次，
      至此定案：不再改）。对纯黑 8.42:1，深色档无需调整，沿用原值。
      若将来有人再提「去绿」，请先看浅色档那段注释里的往复记录。 */
-  --success: #ffffff;
+  --success: rgba(48, 209, 88, 0.9);
   --dot: rgba(255, 255, 255, 0.55);
   --dot-pattern: radial-gradient(circle, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
   --dot-size: 20px;
@@ -179,7 +179,7 @@
        10-05 拍板「去绿」（深 #ffffff / 浅 #000000），靠 ✓ 形状与文案承载语义
        10-06 终局裁定（第五次，此后勿再改）：**去绿**——深 #ffffff / 浅 #000000，
        靠 ✓ 形状与文案承载语义；历次往复（保留绿→去绿→回到绿→去绿）到此为止。*/
-  --success: #000000;
+  --success: #1c7f46;
   --dot: rgba(0, 0, 0, 0.55);
   --dot-pattern: radial-gradient(circle, rgba(0, 0, 0, 0.05) 1px, transparent 1px);
   --dot-size: 20px;
