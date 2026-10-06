@@ -180,6 +180,29 @@ jobs:
         run: npm run tauri:build
         # MSIX 直装走 direct 付费墙（微软商店渠道已弃用，2026-10-05 终裁 C3）。
         # 若未来恢复商店渠道：本步需加 env ROCKTIER_CHANNEL: store（10.8.2/10.8.4）。
+      # 去掉 MSI 文件名里的 _en-US（Tauri v2 会按 bundle.windows.wix.language 追加）。
+      # 应用本身带语言切换器，文件名宣称单一语言会误导 —— 看起来像存在
+      # 「英文版」和其他本地化安装包，而实际只有一个多语言安装包。
+      # 只改文件名，不动 bundle 配置：WiX 的 language 字段是 MSI 构建必需的
+      # 工具链语言码，改它会让构建失败。
+      - name: Strip _en-US from MSI filename
+        shell: bash
+        run: |
+          shopt -s nullglob
+          found=0
+          for f in src-tauri/target/release/bundle/msi/*_en-US.msi \
+                   src-tauri/target/x86_64-pc-windows-msvc/release/bundle/msi/*_en-US.msi; do
+            nf="${f%_en-US.msi}.msi"
+            mv "$f" "$nf"
+            echo "  $(basename "$f") -> $(basename "$nf")"
+            found=1
+          done
+          if [ "$found" -eq 0 ]; then
+            echo "::error::no *_en-US.msi found - Tauri naming changed, this step needs updating"
+            ls -1 src-tauri/target/release/bundle/msi/ 2>/dev/null || true
+            exit 1
+          fi
+
       - name: Build MSIX
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
