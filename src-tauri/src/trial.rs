@@ -239,10 +239,17 @@ fn secondary_write(app_key: &str, value: &str) -> bool {
 /// 它给人"测过了"的错觉。
 #[cfg(not(any(target_os = "windows", target_os = "macos")))]
 fn secondary_path_unix(app_key: &str) -> PathBuf {
-    let base = std::env::var("XDG_CONFIG_HOME")
-        .filter(|s| !s.is_empty())
-        .or_else(|| std::env::var("HOME").map(|h| PathBuf::from(h).join(".config")))
-        .unwrap_or_else(std::env::temp_dir);
+    /* 逐个 match 不用 `.filter()`：`std::env::var` 返回 Result，
+       而 `filter` 是 Option 的方法 —— 在只解析到 inherent 方法时
+       会报 E0599「no method named filter found for enum Result」。
+       Journal 的 CI 就是这么红的（PDF 等仓恰好编译过，属侥幸）。 */
+    let base = match std::env::var("XDG_CONFIG_HOME") {
+        Ok(v) if !v.is_empty() => PathBuf::from(v),
+        _ => match std::env::var("HOME") {
+            Ok(h) => PathBuf::from(h).join(".config"),
+            Err(_) => std::env::temp_dir(),
+        },
+    };
     base.join("rocktier").join(format!("{}.trial", app_key))
 }
 
