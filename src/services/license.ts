@@ -45,10 +45,19 @@ export async function storeReceipt(signed: string): Promise<LicenseInfo> {
 export async function activate(code: string): Promise<LicenseInfo> {
   let payload: { receipt?: string; error?: string };
   try {
+    /* 上报机器指纹 —— 服务端据此限制「一张码能激活几台设备」。
+       取不到时是空串，服务端不计数也不拦激活（见 api/devices.js）。
+       指纹只用于设备计数，不含任何硬件序列号原文。 */
+    let fingerprint = "";
+    try {
+      fingerprint = await invoke("machine_fingerprint");
+    } catch {
+      // Rust 命令不可用（极旧版本）不该阻断激活。
+    }
     const res = await fetch("https://rocktier.com/api/activate", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ code: code.trim() }),
+      body: JSON.stringify({ code: code.trim(), fingerprint, os: (typeof navigator !== "undefined" && navigator.platform) || "" }),
     });
     payload = (await res.json()) as { receipt?: string; error?: string };
     if (!res.ok || !payload.receipt) {
