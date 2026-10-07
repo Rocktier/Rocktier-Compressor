@@ -1,3 +1,4 @@
+import { lookup, type Lang } from "../i18n";
 // 许可与激活对话框（家族 L6，拷自 PDF/MD 的 LicenseDialog 并适配 Compressor：
 // Compressor 没有 Modal 组件，遮罩/卡片就地实现，样式走 styles.css；
 // 文案用 Compressor 的行内双语 t(zh, en) 模式，不引入 i18n 字典）。
@@ -8,7 +9,7 @@ import { activate, BUY_URL, type LicenseInfo } from "../services/license";
 interface LicenseDialogProps {
   info: LicenseInfo | null;
   /** 当前界面语言：行内双语 t(zh, en) 据此取词。 */
-  lang: "zh" | "en";
+  lang: Lang;
   onRefresh: () => void;
   onClose: () => void;
 }
@@ -30,7 +31,9 @@ function buy() {
  * （而且会给商店审核留下"引导外部购买"的口实）。
  */
 export function LicenseDialog({ info, lang, onRefresh, onClose }: LicenseDialogProps) {
-  const t = (zh: string, en: string) => (lang === "zh" ? zh : en);
+  /* 8 门语言查表（见 i18n.ts）。签名不变，所以 42 个调用点无需改动。 */
+  /* 签名保留 (zh, en) 以免改动调用点；实际按英文原文查表。 */
+  const t = (_zh: string, en: string) => lookup(lang as Lang, en);
   const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);

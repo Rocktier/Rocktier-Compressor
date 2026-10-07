@@ -1,3 +1,4 @@
+import { LOCALES, lookup, type Lang } from "./i18n";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
@@ -12,7 +13,6 @@ import {
   type LicenseInfo,
 } from "./services/license";
 
-type Lang = "en" | "zh";
 type Profile = { name: string; label: string; description: string; quality: string };
 type CompressResult = {
   inputPath: string;
@@ -67,13 +67,55 @@ function isSupported(p: string): boolean {
 // — fine for CLI humans, wrong for a UI that switches language. The frontend
 // owns i18n: map profile name → [label, description] per language, falling
 // back to whatever the engine sent for unknown profiles.
-const PROFILE_I18N: Record<string, { zh: [string, string]; en: [string, string] }> = {
-  default: { zh: ["默认", "平衡质量与体积"], en: ["Default", "Balanced quality and size"] },
-  web: { zh: ["网页", "优化用于网页上传"], en: ["Web", "Optimised for web upload"] },
-  print: { zh: ["打印", "保留打印质量"], en: ["Print", "Preserve print quality"] },
-  screen: { zh: ["屏幕", "屏幕显示即可"], en: ["Screen", "Screen display only"] },
-  maximum: { zh: ["极限", "最小文件，质量可损"], en: ["Maximum", "Smallest file, lossy"] },
+/* 压缩档位文案。键用**英文原文**（跨语言稳定的标识）。
+   原本是 `{ zh: [名, 描述], en: [名, 描述] }` 的双语内联结构 ——
+   8 门语言放不进去。改为从 i18n-strings 的查表取，
+   由 scripts/gen-i18n.mjs 生成译文。 */
+const PROFILE_I18N: Record<string, Record<string, [string, string]>> = {
+  ja: {
+    default: ["デフォルト", "品質とサイズのバランス"],
+    web: ["ウェブ", "ウェブアップロード向けに最適化"],
+    print: ["印刷", "印刷品質を維持"],
+    screen: ["画面", "画面表示のみ"],
+    maximum: ["最大圧縮", "最小ファイル・非可逆"],
+  },
+  ko: {
+    default: ["기본", "품질과 크기의 균형"],
+    web: ["웹", "웹 업로드에 최적화"],
+    print: ["인쇄", "인쇄 품질 유지"],
+    screen: ["화면", "화면 표시 전용"],
+    maximum: ["최대", "가장 작은 파일·비가역"],
+  },
+  de: {
+    default: ["Standard", "Ausgewogene Qualität und Größe"],
+    web: ["Web", "Für Web-Upload optimiert"],
+    print: ["Druck", "Druckqualität erhalten"],
+    screen: ["Bildschirm", "Nur Bildschirmanzeige"],
+    maximum: ["Maximum", "Kleinste Datei, verlustbehaftet"],
+  },
+  es: {
+    default: ["Predeterminado", "Equilibrio entre calidad y tamaño"],
+    web: ["Web", "Optimizado para subir a la web"],
+    print: ["Impresión", "Conserva la calidad de impresión"],
+    screen: ["Pantalla", "Solo para pantalla"],
+    maximum: ["Máximo", "Archivo más pequeño, con pérdida"],
+  },
+  pt: {
+    default: ["Padrão", "Equilíbrio entre qualidade e tamanho"],
+    web: ["Web", "Otimizado para upload na web"],
+    print: ["Impressão", "Preserva a qualidade de impressão"],
+    screen: ["Tela", "Apenas para tela"],
+    maximum: ["Máximo", "Arquivo menor, com perdas"],
+  },
+  ar: {
+    default: ["افتراضي", "توازن بين الجودة والحجم"],
+    web: ["ويب", "مُحسَّن لرفعه على الويب"],
+    print: ["طباعة", "يحافظ على جودة الطباعة"],
+    screen: ["شاشة", "للعرض على الشاشة فقط"],
+    maximum: ["الأقصى", "أصغر ملف مع فقد في الجودة"],
+  },
 };
+
 
 /** 拖放区图标：几何线条内联 SVG，随主题变色（家族图标规范 §8）。
  *  原为 48px 文字字符 "↓"，在 Windows 上字形不可控且无 aria 语义。 */
@@ -132,7 +174,9 @@ export default function App() {
   qualityRef.current = quality;
   targetRef.current = target;
 
-  const t = (zh: string, en: string) => (langRef.current === "zh" ? zh : en);
+  /* 8 门语言查表（见 i18n.ts）。签名不变，所以 42 个调用点无需改动。 */
+  /* 签名保留 (zh, en) 以免改动 42 个调用点；实际按英文原文查表。 */
+  const t = (_zh: string, en: string) => lookup(langRef.current as Lang, en);
   // 主题：auto → light → dark 三态（家族 §6.5）。label 走 t() 所以要等 lang 定下来。
   const { mode: themeMode, cycleTheme } = useTheme();
   const themeLabel =
@@ -438,8 +482,16 @@ export default function App() {
             )}
           </button>
           <div className="lang-toggle">
-            <button className={lang === "en" ? "active" : ""} onClick={() => setLang("en")}>EN</button>
-            <button className={lang === "zh" ? "active" : ""} onClick={() => setLang("zh")}>中文</button>
+            <select
+              className="lang-btn"
+              value={lang}
+              onChange={(e) => setLang(e.target.value as Lang)}
+              aria-label="Language"
+            >
+              {LOCALES.map((l) => (
+                <option key={l.code} value={l.code}>{l.endonym}</option>
+              ))}
+            </select>
           </div>
         </div>
       </header>
@@ -516,13 +568,13 @@ export default function App() {
                 className={"chip" + (profile === p.name ? " active" : "")}
                 onClick={() => setProfile(p.name)}
               >
-                {PROFILE_I18N[p.name]?.[lang]?.[0] ?? p.label}
+                {PROFILE_I18N[p.name]?.[lang]?.[0] ?? PROFILE_I18N[p.name]?.en?.[0] ?? p.label}
               </button>
             ))}
           </div>
           {selProfile ? (
             <div className="profile-desc">
-              {PROFILE_I18N[selProfile.name]?.[lang]?.[1] ?? selProfile.description}
+              {PROFILE_I18N[selProfile.name]?.[lang]?.[1] ?? PROFILE_I18N[selProfile.name]?.en?.[1] ?? selProfile.description}
             </div>
           ) : null}
         </div>
