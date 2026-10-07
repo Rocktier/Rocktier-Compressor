@@ -155,40 +155,12 @@ pub fn status_from(started_at: Option<i64>, receipt: Option<&Receipt>, now: i64)
                 Status::Expired
             }
         }
-        // 没有起始戳也不该走到这里（`ensure_started` 会先写一个），保险起见按过期处理，
+        // 没有起始戳也不该走到这里（`trial::ensure_started` 会先写一个），保险起见按过期处理，
         // 避免"文件被删"反而变成无限试用。
         None => Status::Expired,
     }
 }
 
-/// 读取试用起始时间戳。文件不存在或内容损坏都返回 `None`（不 panic —— 这个文件
-/// 可能被用户删改，坏掉不该让应用起不来）。
-pub fn read_started_at(dir: &Path) -> Option<i64> {
-    let raw = std::fs::read_to_string(dir.join(STATE_FILE)).ok()?;
-    raw.trim().parse::<i64>().ok()
-}
-
-/// 确保存在起始时间戳，没有就写入当前时间并返回它。
-///
-/// 落盘失败**不能**返回 `None`：`status_from` 会把 `None` 判成 `Expired`，
-/// 于是"state 文件一次都写不出去"的新用户在第一天就会被锁死（B-7-1）。
-/// 失败方向刻意选**放行** —— 与 `commands.rs::current_license` 的"目录取不到
-/// 按放行"同一条准则：宁可多给一段试用，不能把人锁在门外。
-pub fn ensure_started(dir: &Path, now: i64) -> Option<i64> {
-    if let Some(existing) = read_started_at(dir) {
-        return Some(existing);
-    }
-    if let Err(e) = std::fs::create_dir_all(dir) {
-        eprintln!("license: cannot create state dir {}: {e}", dir.display());
-        return Some(now);
-    }
-    let path = dir.join(STATE_FILE);
-    if let Err(e) = std::fs::write(&path, now.to_string()) {
-        eprintln!("license: cannot write trial state {}: {e}", path.display());
-        return Some(now);
-    }
-    Some(now)
-}
 
 /// 校验回执签名。`signed` 是服务端返回的 `"<base64(receipt_json)>.<base64(signature)>"`。
 ///
@@ -261,32 +233,6 @@ mod tests {
     const DAY: i64 = 86_400;
     const T0: i64 = 1_700_000_000;
 
-    #[test]
-    fn first_launch_starts_the_clock_and_second_launch_keeps_it() {
-        let dir = std::env::temp_dir().join("rt-license-test-start");
-        let _ = std::fs::remove_dir_all(&dir);
-
-        let first = ensure_started(&dir, T0).unwrap();
-        assert_eq!(first, T0, "首次启动应写入当前时间");
-        let second = ensure_started(&dir, T0 + 3 * DAY).unwrap();
-        assert_eq!(second, T0, "再次启动不得重置起始时间（否则试用永远不过期）");
-    }
-
-    /// B-7-1：落盘失败（目录建不出来）也必须返回起始时间 —— 若返回 `None`，
-    /// `status_from` 会判 `Expired`，新用户第一天就被锁死，连一次保存都做不了。
-    /// 失败安全：宁可多给试用，不锁人。
-    #[test]
-    fn an_unwritable_state_dir_still_starts_the_trial() {
-        // 用一个普通文件占住路径：对它 create_dir_all 必然失败，且无需 root 权限。
-        let blocker = std::env::temp_dir().join(format!("rt-license-block-{}", std::process::id()));
-        let _ = std::fs::remove_file(&blocker);
-        std::fs::write(&blocker, "not a directory").unwrap();
-
-        let started = ensure_started(&blocker.join("state"), T0);
-        assert_eq!(started, Some(T0), "写失败也必须返回起始时间，绝不能返回 None");
-
-        let _ = std::fs::remove_file(&blocker);
-    }
 
     #[test]
     fn trial_counts_down_and_then_expires() {
