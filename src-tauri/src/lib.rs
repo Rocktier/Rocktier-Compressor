@@ -18,7 +18,6 @@ pub const APP_KEY: &str = "Rocktier.RocktierCompressor";
 
 pub mod license;
 pub mod trial;
-pub mod license;
 
 /* ── 授权：试用与激活（见 license.rs 的模块说明）────────────────────── */
 
@@ -55,7 +54,7 @@ fn current_license() -> crate::license::Status {
         return crate::license::Status::Trialing { days_left: crate::license::TRIAL_DAYS };
     };
     let now = now_secs();
-    let started = /* 试用起点双写（AppData + 副存储）并按机器指纹判定，
+/* 试用起点双写（AppData + 副存储）并按机器指纹判定，
        见 trial.rs 的模块说明。app_key 用 bundle identifier ——
        家族内唯一，避免两个产品的副存储互相覆盖。 */
     let started = crate::trial::ensure_started(
@@ -63,7 +62,7 @@ fn current_license() -> crate::license::Status {
         crate::APP_KEY,
         now,
         &crate::trial::machine_fingerprint(),
-    );;
+    );
     // 只认本单品与全家桶的回执：别人的回执即使验签通过，也不是本应用的授权。
     let receipt = crate::license::read_valid_receipt(dir, crate::license::PUBLIC_KEY_B64)
         .filter(crate::license::accepts);
