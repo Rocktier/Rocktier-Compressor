@@ -1,4 +1,5 @@
 import { LOCALES, lookup, type Lang } from "./i18n";
+import { PROFILE_I18N } from "./i18n-strings";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
@@ -71,50 +72,6 @@ function isSupported(p: string): boolean {
    原本是 `{ zh: [名, 描述], en: [名, 描述] }` 的双语内联结构 ——
    8 门语言放不进去。改为从 i18n-strings 的查表取，
    由 scripts/gen-i18n.mjs 生成译文。 */
-const PROFILE_I18N: Record<string, Record<string, [string, string]>> = {
-  ja: {
-    default: ["デフォルト", "品質とサイズのバランス"],
-    web: ["ウェブ", "ウェブアップロード向けに最適化"],
-    print: ["印刷", "印刷品質を維持"],
-    screen: ["画面", "画面表示のみ"],
-    maximum: ["最大圧縮", "最小ファイル・非可逆"],
-  },
-  ko: {
-    default: ["기본", "품질과 크기의 균형"],
-    web: ["웹", "웹 업로드에 최적화"],
-    print: ["인쇄", "인쇄 품질 유지"],
-    screen: ["화면", "화면 표시 전용"],
-    maximum: ["최대", "가장 작은 파일·비가역"],
-  },
-  de: {
-    default: ["Standard", "Ausgewogene Qualität und Größe"],
-    web: ["Web", "Für Web-Upload optimiert"],
-    print: ["Druck", "Druckqualität erhalten"],
-    screen: ["Bildschirm", "Nur Bildschirmanzeige"],
-    maximum: ["Maximum", "Kleinste Datei, verlustbehaftet"],
-  },
-  es: {
-    default: ["Predeterminado", "Equilibrio entre calidad y tamaño"],
-    web: ["Web", "Optimizado para subir a la web"],
-    print: ["Impresión", "Conserva la calidad de impresión"],
-    screen: ["Pantalla", "Solo para pantalla"],
-    maximum: ["Máximo", "Archivo más pequeño, con pérdida"],
-  },
-  pt: {
-    default: ["Padrão", "Equilíbrio entre qualidade e tamanho"],
-    web: ["Web", "Otimizado para upload na web"],
-    print: ["Impressão", "Preserva a qualidade de impressão"],
-    screen: ["Tela", "Apenas para tela"],
-    maximum: ["Máximo", "Arquivo menor, com perdas"],
-  },
-  ar: {
-    default: ["افتراضي", "توازن بين الجودة والحجم"],
-    web: ["ويب", "مُحسَّن لرفعه على الويب"],
-    print: ["طباعة", "يحافظ على جودة الطباعة"],
-    screen: ["شاشة", "للعرض على الشاشة فقط"],
-    maximum: ["الأقصى", "أصغر ملف مع فقد في الجودة"],
-  },
-};
 
 
 /** 拖放区图标：几何线条内联 SVG，随主题变色（家族图标规范 §8）。

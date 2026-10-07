@@ -127,5 +127,33 @@ for (const lang of Object.keys(table)) {
   tbl.push("  },");
 }
 tbl.push("};", "");
+
+/* 压缩档位文案（[名称, 描述] 二元组）也由本生成器产出。
+ *
+ * 它原本住在 src/App.tsx 里，但那是**组件**——把翻译数据放进组件的后果是
+ * no-literal-user-strings 闸门报假阳性：`印刷` 这种汉字既是合法中文也是
+ * 合法日语，字形判据分不出来，只能靠「它其实是字典」来豁免。
+ * 与其给闸门开特例，不如把数据放回它该在的 i18n 模块。 */
+const PROFILES = ["default", "web", "print", "screen", "maximum"];
+const DESC = {
+  default: "Balanced quality and size",
+  web: "Optimised for web upload",
+  print: "Preserve print quality",
+  screen: "Screen display only",
+  maximum: "Smallest file, lossy",
+};
+for (const lang of ["en", ...Object.keys(table)]) {
+  const m = (await import(`./i18n-profiles/${lang}.mjs`)).default;
+  tbl.push(`export const PROFILE_${lang.replace("-", "_").toUpperCase()}: Record<string, [string, string]> = {`);
+  for (const p of PROFILES) tbl.push(`  ${q(p)}: [${q(m[p][0])}, ${q(m[p][1])}],`);
+  tbl.push("};", "");
+}
+tbl.push(`/** 档位文案按语言索引。键是档位名，与 TARGETS 里的 profile 对应。 */`);
+tbl.push(`export const PROFILE_I18N: Record<string, Record<string, [string, string]>> = {`);
+for (const lang of ["en", ...Object.keys(table)]) {
+  tbl.push(`  ${q(lang)}: PROFILE_${lang.replace("-", "_").toUpperCase()},`);
+}
+tbl.push("};", "");
+
 writeFileSync(join(HERE, "..", "src", "i18n-strings.ts"), tbl.join("\n"));
 console.error(`\n  ✅ src/i18n-strings.ts（${Object.keys(table).length} 语言 × ${calls.size} 条）\n`);

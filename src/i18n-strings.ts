@@ -273,3 +273,70 @@ export const STRINGS: Record<string, Record<string, string>> = {
     "Activate": "تنشيط",
   },
 };
+
+export const PROFILE_EN: Record<string, [string, string]> = {
+  "default": ["Default", "Balanced quality and size"],
+  "web": ["Web", "Optimised for web upload"],
+  "print": ["Print", "Preserve print quality"],
+  "screen": ["Screen", "Screen display only"],
+  "maximum": ["Maximum", "Smallest file, lossy"],
+};
+
+export const PROFILE_JA: Record<string, [string, string]> = {
+  "default": ["デフォルト", "品質とサイズのバランス"],
+  "web": ["ウェブ", "ウェブアップロード向けに最適化"],
+  "print": ["印刷", "印刷品質を維持"],
+  "screen": ["画面", "画面表示のみ"],
+  "maximum": ["最大圧縮", "最小ファイル・非可逆"],
+};
+
+export const PROFILE_KO: Record<string, [string, string]> = {
+  "default": ["기본", "품질과 크기의 균형"],
+  "web": ["웹", "웹 업로드에 최적화"],
+  "print": ["인쇄", "인쇄 품질 유지"],
+  "screen": ["화면", "화면 표시 전용"],
+  "maximum": ["최대", "가장 작은 파일·비가역"],
+};
+
+export const PROFILE_DE: Record<string, [string, string]> = {
+  "default": ["Standard", "Ausgewogene Qualität und Größe"],
+  "web": ["Web", "Für Web-Upload optimiert"],
+  "print": ["Druck", "Druckqualität erhalten"],
+  "screen": ["Bildschirm", "Nur Bildschirmanzeige"],
+  "maximum": ["Maximum", "Kleinste Datei, verlustbehaftet"],
+};
+
+export const PROFILE_ES: Record<string, [string, string]> = {
+  "default": ["Predeterminado", "Equilibrio entre calidad y tamaño"],
+  "web": ["Web", "Optimizado para subir a la web"],
+  "print": ["Impresión", "Conserva la calidad de impresión"],
+  "screen": ["Pantalla", "Solo para pantalla"],
+  "maximum": ["Máximo", "Archivo más pequeño, con pérdida"],
+};
+
+export const PROFILE_PT: Record<string, [string, string]> = {
+  "default": ["Padrão", "Equilíbrio entre qualidade e tamanho"],
+  "web": ["Web", "Otimizado para upload na web"],
+  "print": ["Impressão", "Preserva a qualidade de impressão"],
+  "screen": ["Tela", "Apenas para tela"],
+  "maximum": ["Máximo", "Arquivo menor, com perdas"],
+};
+
+export const PROFILE_AR: Record<string, [string, string]> = {
+  "default": ["افتراضي", "توازن بين الجودة والحجم"],
+  "web": ["ويب", "مُحسَّن لرفعه على الويب"],
+  "print": ["طباعة", "يحافظ على جودة الطباعة"],
+  "screen": ["شاشة", "للعرض على الشاشة فقط"],
+  "maximum": ["الأقصى", "أصغر ملف مع فقد في الجودة"],
+};
+
+/** 档位文案按语言索引。键是档位名，与 TARGETS 里的 profile 对应。 */
+export const PROFILE_I18N: Record<string, Record<string, [string, string]>> = {
+  "en": PROFILE_EN,
+  "ja": PROFILE_JA,
+  "ko": PROFILE_KO,
+  "de": PROFILE_DE,
+  "es": PROFILE_ES,
+  "pt": PROFILE_PT,
+  "ar": PROFILE_AR,
+};

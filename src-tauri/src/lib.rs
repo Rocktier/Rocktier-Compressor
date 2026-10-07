@@ -408,25 +408,116 @@ fn list_files(dir: String) -> Result<Vec<String>, String> {
 
 /// Build the native application menu with family-standard structure.
 #[tauri::command]
-fn build_menu(app: tauri::AppHandle, lang: String) -> Result<(), String> {
-    let zh = lang.starts_with("zh");
-    let l = |zhv: &'static str, en: &'static str| if zh { zhv } else { en };
+/// Menu labels for one language.
+///
+/// Same approach as the other five products' menus: a struct per language
+/// instead of widening the old `l(zh, en)` closure to eight arguments — with
+/// eight positional string arguments, swapping `ja` and `ko` compiles cleanly
+/// and silently shows the wrong language. One field per call site makes that a
+/// compile error.
+///
+/// Unknown codes fall back to English rather than panicking, so a stale
+/// `localStorage` value degrades to a usable menu.
+struct MenuStrings {
+    app: &'static str,
+    file: &'static str,
+    edit: &'static str,
+    view: &'static str,
+    window: &'static str,
+    add_files: &'static str,
+    add_folder: &'static str,
+    start: &'static str,
+    help: &'static str,
+    support: &'static str,
+    website: &'static str,
+    about: &'static str,
+    license: &'static str,
+}
 
-    let add_i = MenuItem::with_id(&app, "add", l("添加文件…", "Add Files…"), true, Some("CmdOrCtrl+O"))
+impl MenuStrings {
+    fn for_lang(lang: &str) -> Self {
+        // Primary subtag, so "zh-CN" and "zh-Hans" both land on zh.
+        let code = lang.split(['-', '_']).next().unwrap_or("");
+        match code {
+            "zh" => Self {
+                app: "Rocktier Compressor", file: "文件", edit: "编辑", view: "显示",
+                window: "窗口", add_files: "添加文件…", add_folder: "添加文件夹…",
+                start: "开始压缩", help: "帮助", support: "获取支持",
+                website: "访问 rocktier.com", about: "关于 Rocktier Compressor",
+                license: "许可与激活…",
+            },
+            "ja" => Self {
+                app: "Rocktier Compressor", file: "ファイル", edit: "編集", view: "表示",
+                window: "ウインドウ", add_files: "ファイルを追加…", add_folder: "フォルダーを追加…",
+                start: "圧縮を開始", help: "ヘルプ", support: "サポート",
+                website: "rocktier.com を開く", about: "Rocktier Compressor について",
+                license: "ライセンス…",
+            },
+            "ko" => Self {
+                app: "Rocktier Compressor", file: "파일", edit: "편집", view: "보기",
+                window: "창", add_files: "파일 추가…", add_folder: "폴더 추가…",
+                start: "압축 시작", help: "도움말", support: "지원 받기",
+                website: "rocktier.com 방문", about: "Rocktier Compressor 정보",
+                license: "라이선스…",
+            },
+            "de" => Self {
+                app: "Rocktier Compressor", file: "Datei", edit: "Bearbeiten", view: "Ansicht",
+                window: "Fenster", add_files: "Dateien hinzufügen…", add_folder: "Ordner hinzufügen…",
+                start: "Komprimieren starten", help: "Hilfe", support: "Support erhalten",
+                website: "rocktier.com besuchen", about: "Über Rocktier Compressor",
+                license: "Lizenz…",
+            },
+            "es" => Self {
+                app: "Rocktier Compressor", file: "Archivo", edit: "Editar", view: "Ver",
+                window: "Ventana", add_files: "Añadir archivos…", add_folder: "Añadir carpeta…",
+                start: "Empezar a comprimir", help: "Ayuda", support: "Obtener soporte",
+                website: "Visitar rocktier.com", about: "Acerca de Rocktier Compressor",
+                license: "Licencia…",
+            },
+            "pt" => Self {
+                app: "Rocktier Compressor", file: "Arquivo", edit: "Editar", view: "Exibir",
+                window: "Janela", add_files: "Adicionar arquivos…", add_folder: "Adicionar pasta…",
+                start: "Iniciar compressão", help: "Ajuda", support: "Obter suporte",
+                website: "Visitar rocktier.com", about: "Sobre o Rocktier Compressor",
+                license: "Licença…",
+            },
+            "ar" => Self {
+                app: "Rocktier Compressor", file: "ملف", edit: "تحرير", view: "عرض",
+                window: "نافذة", add_files: "إضافة ملفات…", add_folder: "إضافة مجلد…",
+                start: "ابدأ الضغط", help: "مساعدة", support: "الحصول على الدعم",
+                website: "زيارة rocktier.com", about: "حول Rocktier Compressor",
+                license: "الترخيص…",
+            },
+            // English is both the family default and the fallback.
+            _ => Self {
+                app: "Rocktier Compressor", file: "File", edit: "Edit", view: "View",
+                window: "Window", add_files: "Add Files…", add_folder: "Add Folder…",
+                start: "Start Compress", help: "Help", support: "Get Support",
+                website: "Visit rocktier.com", about: "About Rocktier Compressor",
+                license: "License…",
+            },
+        }
+    }
+}
+
+fn build_menu(app: tauri::AppHandle, lang: String) -> Result<(), String> {
+    let m = MenuStrings::for_lang(&lang);
+
+    let add_i = MenuItem::with_id(&app, "add", m.add_files, true, Some("CmdOrCtrl+O"))
         .map_err(|e| e.to_string())?;
-    let add_folder_i = MenuItem::with_id(&app, "add-folder", l("添加文件夹…", "Add Folder…"), true, Some("CmdOrCtrl+Shift+O"))
+    let add_folder_i = MenuItem::with_id(&app, "add-folder", m.add_folder, true, Some("CmdOrCtrl+Shift+O"))
         .map_err(|e| e.to_string())?;
-    let compress_i = MenuItem::with_id(&app, "compress", l("开始压缩", "Start Compress"), true, Some("CmdOrCtrl+Return"))
+    let compress_i = MenuItem::with_id(&app, "compress", m.start, true, Some("CmdOrCtrl+Return"))
         .map_err(|e| e.to_string())?;
 
     let app_menu = Submenu::with_items(
         &app,
-        l("Rocktier Compressor", "Rocktier Compressor"),
+        m.app,
         true,
         &[
             &PredefinedMenuItem::about(
                 &app,
-                Some(l("关于 Rocktier Compressor", "About Rocktier Compressor")),
+                Some(m.about),
                                 Some(AboutMetadata {
                     version: Some(env!("CARGO_PKG_VERSION").to_string()),
                     copyright: Some("Copyright 2026 Rocktier".to_string()),
@@ -445,7 +536,7 @@ fn build_menu(app: tauri::AppHandle, lang: String) -> Result<(), String> {
 
     let file_menu = Submenu::with_items(
         &app,
-        l("文件", "File"),
+        m.file,
         true,
         &[
             &add_i,
@@ -459,7 +550,7 @@ fn build_menu(app: tauri::AppHandle, lang: String) -> Result<(), String> {
 
     let edit_menu = Submenu::with_items(
         &app,
-        l("编辑", "Edit"),
+        m.edit,
         true,
         &[
             &PredefinedMenuItem::undo(&app, None).map_err(|e| e.to_string())?,
@@ -474,14 +565,14 @@ fn build_menu(app: tauri::AppHandle, lang: String) -> Result<(), String> {
 
     let view_menu = Submenu::with_items(
         &app,
-        l("显示", "View"),
+        m.view,
         true,
         &[&PredefinedMenuItem::fullscreen(&app, None).map_err(|e| e.to_string())?],
     ).map_err(|e| e.to_string())?;
 
     let window_menu = Submenu::with_items(
         &app,
-        l("窗口", "Window"),
+        m.window,
         true,
         &[
             &PredefinedMenuItem::minimize(&app, None).map_err(|e| e.to_string())?,
@@ -492,16 +583,16 @@ fn build_menu(app: tauri::AppHandle, lang: String) -> Result<(), String> {
 
     let help_menu = Submenu::with_items(
         &app,
-        l("帮助", "Help"),
+        m.help,
         true,
         &[
             // 购买页面上写着"打开应用 → License → 输入激活码"，所以应用里必须真有一个能到
             // 那儿的入口（授权胶囊在已激活/商店版下会隐藏，帮助菜单是常驻入口）。
-            &MenuItem::with_id(&app, "license", l("许可与激活…", "License…"), true, None::<&str>)
+            &MenuItem::with_id(&app, "license", m.license, true, None::<&str>)
                 .map_err(|e| e.to_string())?,
-            &MenuItem::with_id(&app, "website", l("访问 rocktier.com", "Visit rocktier.com"), true, None::<&str>)
+            &MenuItem::with_id(&app, "website", m.website, true, None::<&str>)
                 .map_err(|e| e.to_string())?,
-            &MenuItem::with_id(&app, "support", l("获取支持", "Get Support"), true, None::<&str>)
+            &MenuItem::with_id(&app, "support", m.support, true, None::<&str>)
                 .map_err(|e| e.to_string())?,
         ],
     ).map_err(|e| e.to_string())?;
