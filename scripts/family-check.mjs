@@ -20,12 +20,33 @@ import { join, resolve, basename, dirname } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
+const args0 = process.argv.slice(2);
+const rootArg0 = args0.includes("--root") ? resolve(args0[args0.indexOf("--root") + 1]) : null;
+
+/* 家族根探测（与下方 probeFamilyRoot 同一套判据，但这里必须先算出来，
+   因为契约目录本身可能要回溯到家族根）。 */
+const PRODUCT_PROBE0 = ["Rocktier PDF", "Rocktier MD", "Rocktier Write", "Rocktier Pic2Webp"];
+function looksLikeFamilyRoot0(dir) {
+  return PRODUCT_PROBE0.filter((d) => existsSync(join(dir, d))).length >= 3;
+}
+function probeFamilyRoot0() {
+  let dir = HERE;
+  for (let i = 0; i < 8; i++) {
+    if (looksLikeFamilyRoot0(dir)) return dir;
+    const up = dirname(dir);
+    if (up === dir) break;
+    dir = up;
+  }
+  return resolve(HERE, "..", "..");
+}
+const famRoot0 = rootArg0 || probeFamilyRoot0();
+
 const CONTRACT_CANDIDATES = [
   resolve(HERE, "..", "docs", "rocktier"), // 产品内分发副本（CI 用）
   resolve(HERE, ".."),                     // 共享仓内 docs/rocktier
   resolve(HERE, "..", "..", "..", "docs", "rocktier"),
-];
-const CONTRACT_DIR = CONTRACT_CANDIDATES.find((d) => existsSync(join(d, "family.json"))) || CONTRACT_CANDIDATES[0];
+  resolve(famRoot0, "docs", "rocktier"),    // 家族根的共享契约（本地无产品内副本时）
+];const CONTRACT_DIR = CONTRACT_CANDIDATES.find((d) => existsSync(join(d, "family.json"))) || CONTRACT_CANDIDATES[0];
 const CANONICAL_TOKENS = join(CONTRACT_DIR, "tokens.css");
 const CONTRACT = JSON.parse(readFileSync(join(CONTRACT_DIR, "family.json"), "utf8"));
 
@@ -274,13 +295,48 @@ async function runChecks(id, product, dir) {
        * 要求字面的 `s` 字符 —— `en: {` 永远匹配不上，循环体一次都没进，
        * 于是 5 款产品的 en/zh 键集恒为空，报出一句「适配表未取到键（en=0 zh=0）」。
        * 那句话把人指向适配表，真正的问题在正则上，方向完全错。
-       * 现改用字符类 [ \t] 与 \{，不依赖任何反斜杠转义，从根上消除这类坑。 */
+       * 现改用字符类 [ \t] 与 \{，不依赖任何反斜杠转义，从根上消除这类坑。
+       *
+       * ⚠️ 简写属性陷阱（2026-10-11 修）：MD 的 STRINGS 写成
+       *     const STRINGS = { en, ja, ko, …, zh: { … } }
+       * 其中 en 来自 `import { en } from "./i18n.en"`。此时 `en` 后面是逗号
+       * 而不是冒号，原正则（只认 `:` + `{`）匹配不到，于是 en 键集为 0、
+       * zh 键集 98 —— 而 co-located 那套逻辑里 E/Z 是同一个 Set，
+       * 不可能一边 0 一边 98。这一类「一边为空一边非空」的输出本身就是
+       * 「适配表与产品实际写法不符」的信号，不应静默当成对账通过。
+       * 现在：冒号形式照旧；简写形式转由 shorthandResolve 从被导入模块取。 */
       const re = new RegExp(`["']?${n}(?:[-_][A-Za-z]{2,4})?["']?[ \\t]*[:=][ \\t]*\\{`, "gi");
       let m;
       while ((m = re.exec(t))) {
         for (const k of collectBlockKeys(t, m.index + m[0].length - 1)) {
           // leafOnly 暂不做过滤：Journal 顶层多嵌套对象，先取全量键再据实判断差异
           acc.add(k);
+        }
+      }
+    }
+    return acc;
+  };
+
+  /* 由调用方注入：把 { lang, file } 形式的简写属性解析成实际键集。 */
+  const shorthandResolve = (t, n, fromDir, leafOnly) => {
+    const acc = new Set();
+    // 三种写法：`en,`（对象内简写）/ `en: en` / 直接从 import 拿
+    const importRe = new RegExp(`import\\s*\\{\\s*${n}\\s*\\}\\s*from\\s*["'\`]([^"'\`]+)["'\`]`, "g");
+    let im;
+    while ((im = importRe.exec(t))) {
+      const target = resolve(fromDir, im[1]);
+      for (const ext of ["", ".ts", ".tsx", ".js", ".mjs"]) {
+        const f = target + ext;
+        if (existsSync(f)) {
+          const sub = read(f);
+          // 被导入模块里该语言的导出具名：export const en = { … }
+          // 键集取该对象字面量的全部顶层键
+          const re = new RegExp(`export\\s+const\\s+${n}\\s*(?::[^=]+)?=\\s*\\{`, "g");
+          let m2;
+          while ((m2 = re.exec(sub))) {
+            for (const k of collectBlockKeys(sub, m2.index + m2[0].length - 1)) acc.add(k);
+          }
+          break;
         }
       }
     }
@@ -304,8 +360,19 @@ async function runChecks(id, product, dir) {
     } else if (AD.mode === "blocks") {
       for (const f of files) {
         const t = read(f);
-        E = new Set([...E, ...blockKeysFor(t, AD.langNames?.en || ["en"], AD.leafOnly)]);
-        Z = new Set([...Z, ...blockKeysFor(t, AD.langNames?.zh || ["zh"], AD.leafOnly)]);
+        const enNames = AD.langNames?.en || ["en"];
+        const zhNames = AD.langNames?.zh || ["zh"];
+        const enKeys = blockKeysFor(t, enNames, AD.leafOnly);
+        E = new Set([...E, ...enKeys]);
+        Z = new Set([...Z, ...blockKeysFor(t, zhNames, AD.leafOnly)]);
+        /* 一边为空一边非空 = 适配表与产品实际写法不符（典型：简写属性）。
+           此时用 import 解析兜一次，避免把「取不到」误报成对账结果。 */
+        if (E.size === 0 && Z.size > 0) {
+          for (const n of enNames) E = new Set([...E, ...shorthandResolve(t, n, dirname(f), AD.leafOnly)]);
+        }
+        if (Z.size === 0 && E.size > 0) {
+          for (const n of zhNames) Z = new Set([...Z, ...shorthandResolve(t, n, dirname(f), AD.leafOnly)]);
+        }
       }
     } else if (AD.mode === "co-located") {
       const entries = [...read(files[0] || "").matchAll(
