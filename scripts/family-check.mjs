@@ -222,7 +222,9 @@ async function runChecks(id, product, dir) {
                   langNames: { en: ["en-US"], zh: ["zh-CN"] }, leafOnly: true },
     sign:       { mode: "co-located", files: ["src/i18n.ts"] },
     "cad-viewer": { mode: "none", reason: "行内三元双语（lang===\"zh\" ? … : …），无独立 en/zh 字典" },
-    compressor: { mode: "none", reason: "行内双语 t(\"中文\",\"English\")，无独立 en/zh 字典" },
+    compressor: { mode: "source-keyed", files: ["src/i18n-strings.ts"],
+                  reason: "STRINGS[lang][英文原文] —— 英文是键不是语言块，与家族其他产品形态不同。" +
+                          "键源=英文原文（跨语言稳定），故对账为「各语言块键集是否与英文键源一致」" },
   };
 
   // 整文件的键（分文件形态：en.ts / zh.ts 全文件即该语言字典）
@@ -379,8 +381,46 @@ async function runChecks(id, product, dir) {
         /(?:^|\n)\s{2,}["'`]?([\w.$-]+)["'`]?\s*:\s*\{\s*en\s*:/g)].map((m) => m[1]);
       E = new Set(entries);
       Z = new Set(entries);
+    } else if (AD.mode === "source-keyed") {
+      /* Compressor 形态：STRINGS[lang][英文原文]，英文是**键**不是语言块，
+         所以没有 en 块可取 —— 传统 en/zh 对账在这里不适用。
+         做法：取首个语言块的键集当「键源」（键即英文原文，跨语言稳定），
+         再要求其余每个语言块的键集与键源**完全一致**。
+         这样漏译/多译照样会被抓出来，只是比对基准从 en/zh 换成键源。 */
+      const src = read(files[0] || "");
+      // 顶层即各语言块：{ ja: {...}, ko: {...}, … }
+      const langs = [...collectBlockKeys(src, src.indexOf("{", src.indexOf("STRINGS")))];
+      const perLang = new Map();
+      for (const lg of langs) {
+        perLang.set(lg, blockKeysFor(src, [lg], AD.leafOnly));
+      }
+      if (perLang.size < 2) {
+        add(id, "i18n-key-reconciliation", "WARN",
+          `source-keyed 只取到 ${perLang.size} 个语言块，无从比对`);
+      } else {
+        const basis = [...perLang.keys()][0];
+        E = perLang.get(basis);
+        let bad = 0;
+        const detail = [];
+        for (const [lg, ks] of perLang) {
+          if (lg === basis) continue;
+          const miss = [...E].filter((k) => !ks.has(k)).length;
+          const extra = [...ks].filter((k) => !E.has(k)).length;
+          if (miss + extra > 0) {
+            bad += miss + extra;
+            detail.push(`${lg} 漏${miss}/多${extra}`);
+          }
+        }
+        Z = E; // 键源与自身齐平，走统一下面的 PASS/FAIL 出口
+        add(id, "i18n-key-reconciliation", bad ? "FAIL" : "PASS",
+          bad ? `${perLang.size} 语言块与键源(${basis})不齐：${detail.join("；")}`
+              : `${perLang.size} 语言块键齐平 (基准 ${basis}, ${E.size} 键)`);
+      }
     }
-    if (!E.size || !Z.size) {
+    if (AD.mode === "source-keyed") {
+      /* 已在上面的分支自行上报（比对基准是键源而非 en/zh）。
+         若落到下面的共用出口，同一检查会被 add 两次、总数虚增。 */
+    } else if (!E.size || !Z.size) {
       add(id, "i18n-key-reconciliation", "WARN", `适配表未取到键（en=${E.size} zh=${Z.size}）`);
     } else {
       const onlyEn = [...E].filter((k) => !Z.has(k));
