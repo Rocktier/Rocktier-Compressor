@@ -27,6 +27,11 @@
    同一族浅色界面必须看起来是同一个产品，色阶不对齐会立刻穿帮。 */
 [data-theme="light"] {
   --bg: #ffffff;
+  /* 这两条原先缺失，导致浅色档回落到 :root 的近黑值(#141414/#1c1c1c)，
+     而文字令牌已按浅色档变近黑 —— 黑字压近黑底，实测 1.05~1.22:1。
+     铁律：浅色档必须定义与 :root 完全相同的令牌集。 */
+  --surface: #ffffff;
+  --surface-2: #f5f5f5;
 }
 
 * {
@@ -220,7 +225,10 @@ body {
   color: var(--brand);
 }
 .file-info.muted {
-  opacity: 0.6;
+  /* 原为 opacity:0.6 —— 叠在已带 alpha 的 --text-muted 上二次衰减
+     (有效 alpha = .58 x .6 = .348 → 3.21:1)。要更弱直接用第三级文字令牌，
+     不要在带 alpha 的令牌上再叠 opacity。 */
+  color: var(--text-tertiary);
 }
 .file-info .ratio {
   /* 浅色档下 #4ade80 在白底上对比度不足，用 --success 随主题切换 */
