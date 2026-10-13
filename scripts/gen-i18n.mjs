@@ -33,7 +33,7 @@ import { fileURLToPath } from "node:url";
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = process.env.ROCKTIER_ROOT || join(HERE, "..", "..", "..", "..");
 const GLOSSARY = join(REPO, "docs", "rocktier", "i18n", "glossary.json");
-const LANGS = ["ja", "ko", "de", "es", "pt", "ar"];
+const LANGS = [];
 const TARGETS = ["src/App.tsx", "src/components/LicenseDialog.tsx"];
 
 const args = process.argv.slice(2);

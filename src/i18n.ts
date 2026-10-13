@@ -26,18 +26,12 @@
 
 import { STRINGS } from "./i18n-strings";
 
-export type Lang = "en" | "zh" | "ja" | "ko" | "de" | "es" | "pt" | "ar";
+export type Lang = "en" | "zh";
 
 /** 家族标准语言表 —— 单一真源，与 PDF / CAD / Sign 同构。 */
 export const LOCALES = [
   { code: "en", endonym: "English" },
-  { code: "zh", endonym: "中文" },
-  { code: "ja", endonym: "日本語" },
-  { code: "ko", endonym: "한국어" },
-  { code: "de", endonym: "Deutsch" },
-  { code: "es", endonym: "Español" },
-  { code: "pt", endonym: "Português" },
-  { code: "ar", endonym: "العربية" },
+    { code: "zh", endonym: "中文" }
 ] as const;
 
 /** 取指定语言下英文原文 `en` 的译文；未收录时回落英文原文本身。 */
