@@ -131,9 +131,15 @@ export default function App() {
   qualityRef.current = quality;
   targetRef.current = target;
 
-  /* 8 门语言查表（见 i18n.ts）。签名不变，所以 42 个调用点无需改动。 */
-  /* 签名保留 (zh, en) 以免改动 42 个调用点；实际按英文原文查表。 */
-  const t = (_zh: string, en: string) => lookup(langRef.current as Lang, en);
+  /* 8 门语言查表（见 i18n.ts）。签名不变，所以 42 个调用点无需改动。
+   *
+   * zh 走调用点内联的第一个参数，不查表：STRINGS 只收 6 门非中英语言
+   * （gen-i18n.mjs 的 LANGS），而 zh 文案在 42 个调用点里本来就写着 ——
+   * 再生成一份 zh 字典只会造出第二个真源，两处迟早漂移。
+   * 此前写成 `(_zh, en) => lookup(lang, en)`，`_zh` 被整个忽略，
+   * 于是中文用户永远看到英文（STRINGS.zh 不存在 → 回落英文原文）。 */
+  const t = (zh: string, en: string) =>
+    langRef.current === "zh" ? zh : lookup(langRef.current as Lang, en);
   // 主题：auto → light → dark 三态（家族 §6.5）。label 走 t() 所以要等 lang 定下来。
   const { mode: themeMode, cycleTheme } = useTheme();
   const themeLabel =

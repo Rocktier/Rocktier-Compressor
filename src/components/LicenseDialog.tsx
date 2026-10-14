@@ -33,7 +33,9 @@ function buy() {
 export function LicenseDialog({ info, lang, onRefresh, onClose }: LicenseDialogProps) {
   /* 8 门语言查表（见 i18n.ts）。签名不变，所以 42 个调用点无需改动。 */
   /* 签名保留 (zh, en) 以免改动调用点；实际按英文原文查表。 */
-  const t = (_zh: string, en: string) => lookup(lang as Lang, en);
+  /* zh 走内联第一参数，其余 7 门查表。见 App.tsx 同处注释：
+     此前 `(_zh, en) => lookup(...)` 把内联中文整个忽略，中文用户永远看到英文。 */
+  const t = (zh: string, en: string) => (lang === "zh" ? zh : lookup(lang as Lang, en));
   const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
