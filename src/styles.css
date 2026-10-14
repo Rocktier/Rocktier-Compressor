@@ -77,7 +77,10 @@ body {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: var(--brand);
+  /* 用 --red 而非 --brand：浅色档 --red 翻成 #e64537 保证 8px 小点对白底可辨，
+     而 --brand 两主题都是 #ff4a3d 不翻转（tokens.css:158 vs :235）。
+     家族另外 7 款的呼吸点一律用 --red，此处原先用 --brand 是分叉。 */
+  background: var(--red);
   /* 家族签名：圆点脉动（keyframes 与时长取自 tokens.css 母版 .dot-live） */
   animation: dotpulse 3s var(--ease) infinite;
   /* 子元素不拦截鼠标事件，否则会打断 data-tauri-drag-region 的窗口拖动 */
