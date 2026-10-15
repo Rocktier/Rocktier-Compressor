@@ -529,6 +529,7 @@ impl MenuStrings {
     }
 }
 
+#[tauri::command]
 fn build_menu(app: tauri::AppHandle, lang: String) -> Result<(), String> {
     let m = MenuStrings::for_lang(&lang);
 

@@ -73,9 +73,6 @@ pub fn enforced() -> bool {
 /// 留空表示**尚未配置**：此时任何回执都无法通过校验，授权一律判为无效（安全侧默认）。
 pub const PUBLIC_KEY_B64: &str = "jIw3pZntprv6umUr4wFBz838/U4VvxRBHvLK08nri4M=";
 
-/// 试用状态的落盘位置（相对于应用数据目录）。文件名故意平淡，不写成 "trial"。
-const STATE_FILE: &str = "state.bin";
-
 /// 本应用接受的授权产品码：**本单品自己 + 全家桶**。
 ///
 /// ⚠️ 不能接受"任何产品码"。回执里的产品码来自激活码（`<产品码>:<交易号>`），而家族
