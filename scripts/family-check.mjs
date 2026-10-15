@@ -709,6 +709,33 @@ async function runChecks(id, product, dir) {
   add(id, "html-lang-sync", setsLang ? "PASS" : "FAIL",
     setsLang ? "存在 documentElement.lang 同步" : "未同步 html lang（无障碍缺陷）");
 
+  /* 6b. html-lang-initial：入口 HTML 的**初始** lang 必须是家族默认语言。
+     光查 6 拦不住「初始值是别的语言」——那样从首帧到 JS 执行之间，读屏器
+     用错的语音引擎，静态文案也以非默认语言呈现。CAD 与 Pic2WebP 的
+     lang="zh-CN" 就是这样穿过了整个 2026-10-13 语言收敛。 */
+  const DEFAULT_HTML_LANG = "en";
+  const htmlTags = [...htmlSrc.matchAll(/<html[^>]*\blang=["']([^"']*)["']/gi)].map((m) => m[1]);
+  const offLang = [...new Set(htmlTags.filter((v) => v.toLowerCase().split("-")[0] !== DEFAULT_HTML_LANG))];
+  add(id, "html-lang-initial", htmlTags.length && !offLang.length ? "PASS" : "FAIL",
+    !htmlTags.length
+      ? "入口 HTML 未声明 lang 属性（读屏器无法选语音引擎）"
+      : offLang.length
+        ? `入口 HTML 初始 lang 非默认语言 ${DEFAULT_HTML_LANG}: ${offLang.join(",")}（首帧即非默认语言；中文由运行时切换）`
+        : `入口 HTML 初始 lang 均为 ${DEFAULT_HTML_LANG}`);
+
+  /* 6c. markup-i18n-default-lang：data-i18n 的静态 fallback 必须是默认语言。
+     applyLang 会在运行时替换它们，但 JS 执行前（首帧）与脚本失败时，用户
+     看到的就是这段 fallback —— 中文 fallback 等于让英文用户先看到中文。 */
+  const badFallback = [];
+  for (const m of htmlSrc.matchAll(/\bdata-i18n="([^"]*)"[^>]*>([^<]*)/g)) {
+    const txt = m[2].trim();
+    if (txt && /[\u4e00-\u9fff]/.test(txt)) badFallback.push(`${m[1]}:${txt.slice(0, 16)}`);
+  }
+  add(id, "markup-i18n-default-lang", badFallback.length ? "FAIL" : "PASS",
+    badFallback.length
+      ? `${badFallback.length} 处 data-i18n 静态兜底是中文（JS 执行前英文用户会看到中文）: ${badFallback.slice(0, 3).join(" / ")}`
+      : "data-i18n 静态兜底均为默认语言");
+
   /* 7. font / theme / focus-visible / tabular-nums 存在性 */
   const fontsDir = feDirs.flatMap((d) => [join(d, "fonts"), join(d, "assets/fonts")]).find(existsSync);
   let fonts = [], hasOFL = false;

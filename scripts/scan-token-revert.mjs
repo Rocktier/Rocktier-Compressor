@@ -30,13 +30,36 @@ const REPOS = {
 
 const stripComments = (s) => s.replace(/\/\*[\s\S]*?\*\//g, "");
 
+/**
+ * 不参与扫描的路径 —— **设计稿，不是产品代码**。
+ *
+ * `design/toolbar-redesign.html`（Write）是「Toolbar Redesign Proposal」：
+ * 一个 18KB 的独立提案文档，vite 未引用、不进产物。它自带一个完整的
+ * `:root`（浅色主题的演示版），于是 `--bg: #ffffff`、`--accent: #000`
+ * 等4 处被记成「令牌回退」。
+ *
+ * 但那不是回退 —— 它是**提案当时的样子**，是历史记录。把它「修」成母版
+ * 值等于篡改提案本身。所以按路径排除，而不是改它的值。
+ *
+ * 判据：不在构建产物里的独立 HTML 设计稿。
+ */
+const EXCLUDE = [/^design\//, /(^|\/)design\//, /\.mock\.html$/];
+
 // 归一化：抹掉纯排版差异，只留语义差异。
 // rgba(255,255,255,0.03) === rgba(255, 255, 255, 0.03)
 // #fff === #ffffff、#000 === #000000
+// 0.10 === 0.1 === .50 === 0.5（尾零与前导点都属排版差异）
 const norm = (v) => {
   let s = v.replace(/\s+/g, "").toLowerCase();
   s = s.replace(/#([0-9a-f])\1([0-9a-f])\2([0-9a-f])\3\b/g, "#$1$2$3");
-  s = s.replace(/\ba(\d*\.?\d+)\b/g, "a$1").replace(/\.(\d*0+)(?=[,)])/g, "");
+  // ⚠️ 小数归一化只去**尾部零**，必须保留有效数字。
+  // 原来写的是 /\.(\d*0+)(?=[,)])/ → ''，它会把 `0.10)` 变成 `010)`
+  // （`\d*` 吃掉 `1`、`0+` 吃掉 `0`，整段被删），于是 `0.10` 与 `0.1`
+  // 被判为不同 → 扫描器一直虚报这类「回退」。
+  s = s.replace(/(^|[^0-9a-z.])(\d+)\.(\d+)(?![0-9a-z])/g, (_, pre, int, frac) => {
+    const t = frac.replace(/0+$/, "");
+    return t ? `${pre}${int}.${t}` : `${pre}${int}`;
+  });
   return s;
 };
 
@@ -112,6 +135,7 @@ function trackedStyleFiles(dir) {
     .split("\0")
     .filter(Boolean)
     .filter((p) => /\.(css|html|svelte)$/.test(p))
+    .filter((p) => !EXCLUDE.some((re) => re.test(p)))
     .map((p) => join(dir, p));
   return { files, tracked: true };
 }
