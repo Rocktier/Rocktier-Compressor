@@ -435,8 +435,6 @@ fn list_files(dir: String) -> Result<Vec<String>, String> {
     Ok(out)
 }
 
-/// Build the native application menu with family-standard structure.
-#[tauri::command]
 /// Menu labels for one language.
 ///
 /// Same approach as the other five products' menus: a struct per language
