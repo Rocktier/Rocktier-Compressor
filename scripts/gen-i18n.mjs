@@ -33,6 +33,10 @@ import { fileURLToPath } from "node:url";
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = process.env.ROCKTIER_ROOT || join(HERE, "..", "..", "..", "..");
 const GLOSSARY = join(REPO, "docs", "rocktier", "i18n", "glossary.json");
+/* 2026-10-13 家族裁定：语言收敛为 en/zh 两门 —— 非中英语种均为未审校机翻基线
+   （family.json globalRules.$locales_2026_10_13）。生成器不再产出 6 门译文：
+   留着 LANGS 等于留一条复活路径，谁跑一次本脚本，删掉的字典文件全部回来。
+   scripts/i18n/<lang>.mjs 译文物保留作历史档案，不进构建。 */
 const LANGS = [];
 const TARGETS = ["src/App.tsx", "src/components/LicenseDialog.tsx"];
 
@@ -68,6 +72,12 @@ console.error(`  t(zh, en) 调用: ${calls.size} 条`);
 
 let missingTotal = 0;
 const table = {};
+/* 表里**只放基线之外的语言** —— en/zh 内联在调用点（t("中文", "English")），
+   由闭包 `lang === "zh" ? zh : lookup(lang, en)` 分发（2026-10-14 `2802de6`
+   修的就是这个分发：此前 `_zh` 被整个忽略，中文用户永远看到英文）。
+   所以 LANGS 为空时 STRINGS 为空对象是**正常终态**，不是缺数据。
+   档位文案相反：它只走 PROFILE_I18N 查表，没有内联兜底，
+   所以 en/zh 必须由本生成器恒产（见下方 PROFILE_LANGS）。 */
 for (const lang of only ? [only] : LANGS) {
   let ctx = {};
   try {
@@ -110,11 +120,12 @@ if (missingTotal) {
 
 const q = (s) => JSON.stringify(s);
 
-/* ① 生成查表模块：STRINGS[lang][en] */
+/* ① 生成查表模块：STRINGS[lang][en] —— 只含基线之外的语言（见上方注释） */
 const tbl = ["/* 由 scripts/gen-i18n.mjs 生成 —— 勿手改。",
-  " * Compressor 的翻译原本内联在 JSX 里（t(\"中文\", \"English\")），",
-  " * 这里抽成按语言索引的查表，键用**英文原文** ——",
-  " * 英文是跨语言稳定的标识，中文在非中文界面里没有意义。",
+  " * Compressor 的界面文案内联在 JSX 里（t(\"中文\", \"English\")），",
+  " * en/zh 由调用点闭包分发，不进本表；本表只放基线之外的语言，",
+  " * 键用**英文原文** —— 英文是跨语言稳定的标识。",
+  " * 2026-10-13 收敛后无基线外语言，故 STRINGS 为空对象（正常终态）。",
   " *",
   " * 术语部分取自 docs/rocktier/i18n/glossary.json（家族唯一真源）。",
   " *",
@@ -135,6 +146,9 @@ tbl.push("};", "");
  * 合法日语，字形判据分不出来，只能靠「它其实是字典」来豁免。
  * 与其给闸门开特例，不如把数据放回它该在的 i18n 模块。 */
 const PROFILES = ["default", "web", "print", "screen", "maximum"];
+/* 档位文案：en/zh 是家族基线，永远产出；LANGS 是额外语言（当前为空）。
+   中文来自 scripts/i18n-profiles/zh.mjs（手写文案，非机翻）。 */
+const PROFILE_LANGS = ["en", "zh", ...Object.keys(table).filter((l) => l !== "zh")];
 const DESC = {
   default: "Balanced quality and size",
   web: "Optimised for web upload",
@@ -142,7 +156,7 @@ const DESC = {
   screen: "Screen display only",
   maximum: "Smallest file, lossy",
 };
-for (const lang of ["en", ...Object.keys(table)]) {
+for (const lang of PROFILE_LANGS) {
   const m = (await import(`./i18n-profiles/${lang}.mjs`)).default;
   tbl.push(`export const PROFILE_${lang.replace("-", "_").toUpperCase()}: Record<string, [string, string]> = {`);
   for (const p of PROFILES) tbl.push(`  ${q(p)}: [${q(m[p][0])}, ${q(m[p][1])}],`);
@@ -150,10 +164,10 @@ for (const lang of ["en", ...Object.keys(table)]) {
 }
 tbl.push(`/** 档位文案按语言索引。键是档位名，与 TARGETS 里的 profile 对应。 */`);
 tbl.push(`export const PROFILE_I18N: Record<string, Record<string, [string, string]>> = {`);
-for (const lang of ["en", ...Object.keys(table)]) {
+for (const lang of PROFILE_LANGS) {
   tbl.push(`  ${q(lang)}: PROFILE_${lang.replace("-", "_").toUpperCase()},`);
 }
 tbl.push("};", "");
 
 writeFileSync(join(HERE, "..", "src", "i18n-strings.ts"), tbl.join("\n"));
-console.error(`\n  ✅ src/i18n-strings.ts（${Object.keys(table).length} 语言 × ${calls.size} 条）\n`);
+console.error(`\n  ✅ src/i18n-strings.ts（查表 ${Object.keys(table).length} 门；en/zh 内联在调用点共 ${calls.size} 条；档位 en/zh）\n`);
