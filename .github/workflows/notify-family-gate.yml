@@ -1,5 +1,16 @@
 name: Notify family gate
 
+# ## 当前状态（2026-10-16 起）
+#
+# 即时派发 **未启用**（9 仓均未配置 FAMILY_GATE_TOKEN，经评估保持零凭证，属
+# 设计决定 —— 台账 findings D-38）。中央闸门由台账仓 cron 兜底，但 GitHub 对
+# 「每 15 分钟」声明实际节流到每天 3~6 次（实测中位间隔约 4.8h，最快 2.3h、
+# 最慢 9.8h）—— 需要即时结果时**手动派发**：
+#   gh workflow run family-contract.yml -R Rocktier/rocktier-docs
+#
+# 下方完整保留凭证配置步骤：若将来决定通电（恢复 push → 派发），按步骤配好
+# 9 仓 secret 即可，无需改本文件。
+#
 # 产品仓push 后，触发**私有台账仓** rocktier-docs 的中央契约闸门。
 #
 # ## 为什么需要这个
@@ -9,7 +20,8 @@ name: Notify family gate
 # 所以产品单方面改动只能等台账仓的 cron 才发现。实测撞到过：一次闸门 FAIL 6 项
 # `tokens-snapshot-diff`，原因就是本仓 tokens 与母版不一致，而 push 无人通知。
 #
-# 本 workflow 补上这条通知，使「产品 push → 中央闸门」成立。
+# 本 workflow 补上这条通知，使「产品 push → 中央闸门」成立 —— 现状见顶部
+# 「当前状态」：该链路未通电（设计决定），承担者是 cron + 手动派发。
 #
 # ## 为什么需要一个凭证
 #
@@ -29,13 +41,14 @@ name: Notify family gate
 # ## 为什么这个 workflow 不会造成凭证泄露
 #
 # GitHub **不会**把 secrets 传给 fork 触发的 `pull_request` workflow。
-# 本 workflow 只在 `push` 到本仓分支时运行 —— 即只有已有写权限的人能触���。
+# 本 workflow 只在 `push` 到本仓分支时运行 —— 即只有已有写权限的人能触发。
 # 且 token 只对 `rocktier-docs` 一个仓有 Actions 权限，读不到产品源码，
 # 也读不到契约内容（定价、授权码）。
 #
 # ## 没配凭证会怎样
 #
-# 空操作并给出提示，由台账仓的 cron（每 15 分钟）兜底。
+# 空操作并给出提示 —— **这就是当前状态**（2026-10-16 起为设计决定）：
+# 中央闸门由台账仓 cron 兜底（实测中位约 5h/次）；需要即时结果走手动派发。
 # 所以**不配也能跑**，只是延迟变大。
 
 on:
@@ -54,13 +67,13 @@ jobs:
         run: |
           set -uo pipefail
           if [ -z "$GH_TOKEN" ]; then
-            echo "::notice::未配置 FAMILY_GATE_TOKEN —— 跳过派发。"
-            echo "::notice::中央闸门仍会由台账仓的 cron（每 15 分钟）兜底。"
+            echo "::notice::未配置 FAMILY_GATE_TOKEN —— 跳过即时派发（现为设计决定，见 findings D-38）。"
+            echo "::notice::中央闸门由台账仓 cron 兜底：实测中位 ~5h/次（GitHub 节流）；需要即时结果请手动派发 family-contract。"
             exit 0
           fi
           if gh workflow run family-contract.yml --repo "$LEDGER" 2>/tmp/err.txt; then
             echo "✅ 已触发 $LEDGER 的 family-contract"
           else
-            echo "::warning::触发失败（将由台账仓 cron 兜底）："
+            echo "::warning::触发失败（将由台账仓 cron 兜底；需要即时结果请手动派发）："
             sed 's/^/  /' /tmp/err.txt | head -5
           fi
