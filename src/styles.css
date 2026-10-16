@@ -105,6 +105,19 @@ body {
   gap: 4px;
   -webkit-app-region: no-drag;
 }
+/* 原生 select 曾无任何样式规则（2026-10-16 UX 审计实测 62×19），命中区
+   不足且与相邻按钮不同源。补 24px 命中区与同一视觉语言。 */
+.lang-toggle .lang-btn {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  cursor: pointer;
+  min-height: 24px;
+  box-sizing: border-box;
+}
 .lang-toggle button {
   background: transparent;
   border: 1px solid var(--border);
