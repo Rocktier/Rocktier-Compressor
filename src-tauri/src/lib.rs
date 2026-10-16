@@ -632,12 +632,11 @@ fn build_menu(app: tauri::AppHandle, lang: String) -> Result<(), String> {
 
     app.set_menu(menu).map_err(|e| e.to_string())?;
 
-    if let Some(main_window) = app.get_webview_window("main") {
-        main_window.on_menu_event(move |window, event| {
-            let _ = window.emit("menu-action", event.id().as_ref());
-        });
-    }
-
+    // 注意：这里**不要**注册菜单事件监听。本函数会被反复调用（启动建一次 +
+    // 前端挂载后按语言重建 + 每次切语言再重建），而 Tauri v2 的 on_menu_event
+    // 是**累加**监听器（`global_event_listeners` / `event_listeners` 是集合，
+    // 派发时挨个调用）：重建 N 次后点一下会触发 N 次 —— 「添加文件」连开 N 个
+    // 对话框、「压缩」跑 N 遍。监听统一挂在 run() 的 Builder 上，只注册一次。
     Ok(())
 }
 
@@ -648,6 +647,11 @@ fn build_default_menu(app: tauri::AppHandle) -> Result<(), String> {
 
 pub fn run() {
     let builder = tauri::Builder::default()
+        // 菜单事件 → 前端动作链（其余八款产品同款写法）。只在这里注册一次：
+        // 不能放进 build_menu，那个函数每次重建菜单都会被调用，监听器会累加。
+        .on_menu_event(|app, event| {
+            let _ = app.emit("menu-action", event.id().as_ref());
+        })
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_opener::init())
