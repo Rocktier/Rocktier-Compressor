@@ -1,0 +1,44 @@
+name: Checks
+
+# Compressor 此前唯一的 push 工作流是 notify-family-gate：build.yml 只在 tag /
+# 手动触发，push 不跑构建与测试。2026-10-16（UX 审计轮发现，task_plan P0''，
+# 用户拍板）把 build.yml 里已被发版反复跑绿的「Tests & Lints」作业原样挂到
+# push —— 配方零改动（含「clippy 需要 engine 二进制先存在」的注释与步骤），
+# 只换触发条件。与 Sign / OCR / MD 的 ci.yml 同配方。
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  checks:
+    name: Tests & Lints
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: 'stable'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - name: Install dependencies
+        run: npm ci
+      - name: Type check & build
+        run: npm run build
+      - name: Build compress-engine binaries
+        # tauri_build::build() (build.rs) hard-fails when a bundle.resources
+        # path is missing — clippy needs the engine binaries to exist first.
+        run: |
+          cd compress-engine
+          CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -o ../src-tauri/compress-engine-windows.exe .
+          CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build -o ../src-tauri/compress-engine-macos .
+          cd ..
+      - name: Rust clippy
+        run: cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
