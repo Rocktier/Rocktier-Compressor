@@ -23,7 +23,7 @@
  * 所以译文从 `scripts/i18n/<lang>.mjs` 读，键用**英文原文**，
  * 生成时按下标展开 —— 顺序由文件里的数组顺序唯一决定，不靠人手对齐。
  *
- * 用法：node scripts/gen-i18n.mjs [--lang ja]
+ * 用法：node scripts/gen-i18n.mjs    （--lang 仅接受 LANGS 里的语言 —— 2026-10-13 收敛后为空）
  */
 
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
@@ -42,6 +42,16 @@ const TARGETS = ["src/App.tsx", "src/components/LicenseDialog.tsx"];
 
 const args = process.argv.slice(2);
 const only = args.includes("--lang") ? args[args.indexOf("--lang") + 1] : null;
+
+/* --lang 只接受 LANGS 里的语言 —— LANGS 是唯一真源（2026-10-13 收敛裁定后为空）。
+   en/zh 由基线数据恒产，不需要指定；基线外语言要重建必须先入 LANGS 并通过审校，
+   不能用 --lang 绕过。没有这道守卫时，`--lang ja` 会去读 scripts/i18n/ja.mjs
+   归档并罗列「缺 N 条译文、补齐后重跑」—— 那段话等于邀请把已删的机翻基线请回来。 */
+if (only && !LANGS.includes(only)) {
+  console.error(`  ❌ --lang "${only}"：不在 LANGS（当前为空 —— 2026-10-13 语言收敛裁定）。`);
+  console.error(`     en/zh 无需指定；基线外语言须先入 LANGS 并通过审校。`);
+  process.exit(2);
+}
 
 if (!existsSync(GLOSSARY)) {
   console.error(`  ❌ 找不到家族术语表: ${GLOSSARY}\n     设 ROCKTIER_ROOT 指向家族根`);

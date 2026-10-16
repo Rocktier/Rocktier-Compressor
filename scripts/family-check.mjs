@@ -222,9 +222,10 @@ async function runChecks(id, product, dir) {
                   langNames: { en: ["en-US"], zh: ["zh-CN"] }, leafOnly: true },
     sign:       { mode: "co-located", files: ["src/i18n.ts"] },
     "cad-viewer": { mode: "none", reason: "行内三元双语（lang===\"zh\" ? … : …），无独立 en/zh 字典" },
-    compressor: { mode: "source-keyed", files: ["src/i18n-strings.ts"],
-                  reason: "STRINGS[lang][英文原文] —— 英文是键不是语言块，与家族其他产品形态不同。" +
-                          "键源=英文原文（跨语言稳定），故对账为「各语言块键集是否与英文键源一致」" },
+    compressor: { mode: "profile-table", files: ["src/i18n-strings.ts"],
+                  tables: { en: "PROFILE_EN", zh: "PROFILE_ZH" },
+                  reason: "档位表 PROFILE_EN/PROFILE_ZH 键对账（无内联兜底）；" +
+                          "STRINGS 只放基线外语言，收敛后为空对象 —— 正常终态，不参与对账" },
   };
 
   // 整文件的键（分文件形态：en.ts / zh.ts 全文件即该语言字典）
@@ -381,44 +382,56 @@ async function runChecks(id, product, dir) {
         /(?:^|\n)\s{2,}["'`]?([\w.$-]+)["'`]?\s*:\s*\{\s*en\s*:/g)].map((m) => m[1]);
       E = new Set(entries);
       Z = new Set(entries);
-    } else if (AD.mode === "source-keyed") {
-      /* Compressor 形态：STRINGS[lang][英文原文]，英文是**键**不是语言块，
-         所以没有 en 块可取 —— 传统 en/zh 对账在这里不适用。
-         做法：取首个语言块的键集当「键源」（键即英文原文，跨语言稳定），
-         再要求其余每个语言块的键集与键源**完全一致**。
-         这样漏译/多译照样会被抓出来，只是比对基准从 en/zh 换成键源。 */
+    } else if (AD.mode === "profile-table") {
+      /* Compressor 2026-10-15 起的形态 —— 适配器必须跟它走，否则报出的
+         WARN「source-keyed 只取到 0 个语言块」是**假信号**：看起来像缺数据，
+         实际是检查脚本自己不认识了（STRINGS 收敛后本来就该是空对象）。
+         译文现在分两处：
+           · 界面文案**内联在调用点**（t(zh, en)）—— 没有独立键集合可对账，
+             闭包分发由第 21 条 locale-parity 闸门看着；
+           · 档位文案在 PROFILE_EN / PROFILE_ZH 两张表 —— 只走
+             `PROFILE_I18N[p.name]?.[lang]?.[0] ?? …en… ?? p.label` 三级兜底，
+             **没有内联兜底**：缺哪一侧的键，那一侧的用户静默回落读另一侧语言。
+             2026-10-15 补 PROFILE_ZH 之前，中文用户的档位名一直是英文。
+         所以对账对象 = 两张档位表的键集。
+         ⚠️ 抽取形态：声明带类型注解（`: Record<string, [string, string]> = {`），
+         blockKeysFor 那个「名字后紧跟 {」的正则匹配不上，必须从 `=` 后找 `{`。 */
       const src = read(files[0] || "");
-      // 顶层即各语言块：{ ja: {...}, ko: {...}, … }
-      const langs = [...collectBlockKeys(src, src.indexOf("{", src.indexOf("STRINGS")))];
-      const perLang = new Map();
-      for (const lg of langs) {
-        perLang.set(lg, blockKeysFor(src, [lg], AD.leafOnly));
-      }
-      if (perLang.size < 2) {
+      const keysOfTable = (name) => {
+        const m = src.match(new RegExp(`\\bconst\\s+${name}\\b[^=]*=\\s*`));
+        if (!m) return null;
+        const brace = src.indexOf("{", m.index + m[0].length);
+        return brace < 0 ? null : collectBlockKeys(src, brace);
+      };
+      const TE = keysOfTable(AD.tables.en);
+      const TZ = keysOfTable(AD.tables.zh);
+      if (!TE || !TE.size || !TZ || !TZ.size) {
         add(id, "i18n-key-reconciliation", "WARN",
-          `source-keyed 只取到 ${perLang.size} 个语言块，无从比对`);
+          `档位表抽取失败（${AD.tables.en}=${TE ? TE.size : "未匹配"} / ${AD.tables.zh}=${TZ ? TZ.size : "未匹配"}）` +
+          ` —— 适配表与 src/i18n-strings.ts 实际形态脱节，先看文件再改适配器`);
       } else {
-        const basis = [...perLang.keys()][0];
-        E = perLang.get(basis);
-        let bad = 0;
-        const detail = [];
-        for (const [lg, ks] of perLang) {
-          if (lg === basis) continue;
-          const miss = [...E].filter((k) => !ks.has(k)).length;
-          const extra = [...ks].filter((k) => !E.has(k)).length;
-          if (miss + extra > 0) {
-            bad += miss + extra;
-            detail.push(`${lg} 漏${miss}/多${extra}`);
-          }
-        }
-        Z = E; // 键源与自身齐平，走统一下面的 PASS/FAIL 出口
+        const onlyEn = [...TE].filter((k) => !TZ.has(k));
+        const onlyZh = [...TZ].filter((k) => !TE.has(k));
+        const bad = onlyEn.length + onlyZh.length;
+        /* STRINGS 状态一并报出：它只放基线外语言。空 = 正常终态（2026-10-13
+           收敛裁定）；非空 = 有人把语言加回了 LANGS，那条链路归 locale-parity
+           与 release-i18n-check 管，本条只注明「未对账」不做判定。 */
+        const strsDecl = src.match(/\bconst STRINGS\b[^=]*=\s*/);
+        const strs = strsDecl
+          ? collectBlockKeys(src, src.indexOf("{", strsDecl.index + strsDecl[0].length))
+          : new Set();
+        const note = strs.size
+          ? `；STRINGS 另有 ${strs.size} 门基线外语言（本条未对账）`
+          : "；STRINGS 空（无基线外语言，正常终态）";
         add(id, "i18n-key-reconciliation", bad ? "FAIL" : "PASS",
-          bad ? `${perLang.size} 语言块与键源(${basis})不齐：${detail.join("；")}`
-              : `${perLang.size} 语言块键齐平 (基准 ${basis}, ${E.size} 键)`);
+          bad
+            ? `档位表 en/zh 不齐 ${bad} 处（仅en ${onlyEn.join(",") || "-"} / 仅zh ${onlyZh.join(",") || "-"}）` +
+              ` —— 缺的那侧会静默回落另一侧的语言`
+            : `档位表 en/zh 键齐平 (${TE.size})${note}`);
       }
     }
-    if (AD.mode === "source-keyed") {
-      /* 已在上面的分支自行上报（比对基准是键源而非 en/zh）。
+    if (AD.mode === "profile-table") {
+      /* 已在上面的分支自行上报（对账对象是档位表，不走 en/zh 共用出口）。
          若落到下面的共用出口，同一检查会被 add 两次、总数虚增。 */
     } else if (!E.size || !Z.size) {
       add(id, "i18n-key-reconciliation", "WARN", `适配表未取到键（en=${E.size} zh=${Z.size}）`);
