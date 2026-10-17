@@ -554,8 +554,13 @@ fn build_menu(app: tauri::AppHandle, lang: String) -> Result<(), String> {
             )
                 .map_err(|e| e.to_string())?,
             &PredefinedMenuItem::separator(&app).map_err(|e| e.to_string())?,
+            // Windows 上 muda 的 hide_others/show_all 落进 `_ => {}` 点了无反应、
+            // hide 是 SW_HIDE 窗口消失召不回（findings D-42）——仅 macOS 显示这三项。
+            #[cfg(target_os = "macos")]
             &PredefinedMenuItem::hide(&app, None).map_err(|e| e.to_string())?,
+            #[cfg(target_os = "macos")]
             &PredefinedMenuItem::hide_others(&app, None).map_err(|e| e.to_string())?,
+            #[cfg(target_os = "macos")]
             &PredefinedMenuItem::show_all(&app, None).map_err(|e| e.to_string())?,
             &PredefinedMenuItem::separator(&app).map_err(|e| e.to_string())?,
             &PredefinedMenuItem::quit(&app, None).map_err(|e| e.to_string())?,
@@ -591,11 +596,18 @@ fn build_menu(app: tauri::AppHandle, lang: String) -> Result<(), String> {
         ],
     ).map_err(|e| e.to_string())?;
 
+    // macOS 原生全屏有效；Windows 上 muda 的 fullscreen 落进 `_ => {}` 点了无
+    // 反应，改用自定义 win-fullscreen 项，由 on_menu_event 调 set_fullscreen。
     let view_menu = Submenu::with_items(
         &app,
         m.view,
         true,
-        &[&PredefinedMenuItem::fullscreen(&app, None).map_err(|e| e.to_string())?],
+        &[
+            #[cfg(target_os = "macos")]
+            &PredefinedMenuItem::fullscreen(&app, None).map_err(|e| e.to_string())?,
+            #[cfg(target_os = "windows")]
+            &MenuItem::with_id(&app, "win-fullscreen", "Toggle Full Screen", true, None::<&str>).map_err(|e| e.to_string())?,
+        ],
     ).map_err(|e| e.to_string())?;
 
     let window_menu = Submenu::with_items(
@@ -605,7 +617,10 @@ fn build_menu(app: tauri::AppHandle, lang: String) -> Result<(), String> {
         &[
             &PredefinedMenuItem::minimize(&app, None).map_err(|e| e.to_string())?,
             &PredefinedMenuItem::separator(&app).map_err(|e| e.to_string())?,
+            #[cfg(target_os = "macos")]
             &PredefinedMenuItem::fullscreen(&app, None).map_err(|e| e.to_string())?,
+            #[cfg(target_os = "windows")]
+            &MenuItem::with_id(&app, "win-fullscreen", "Toggle Full Screen", true, None::<&str>).map_err(|e| e.to_string())?,
         ],
     ).map_err(|e| e.to_string())?;
 
@@ -650,6 +665,13 @@ pub fn run() {
         // 菜单事件 → 前端动作链（其余八款产品同款写法）。只在这里注册一次：
         // 不能放进 build_menu，那个函数每次重建菜单都会被调用，监听器会累加。
         .on_menu_event(|app, event| {
+            // Windows 真全屏（替代 muda 在 Win 上无效的 PredefinedMenuItem::fullscreen）
+            if event.id().as_ref() == "win-fullscreen" {
+                if let Some(win) = app.get_webview_windows().values().next().cloned() {
+                    let _ = win.set_fullscreen(!win.is_fullscreen().unwrap_or(false));
+                }
+                return;
+            }
             let _ = app.emit("menu-action", event.id().as_ref());
         })
         .plugin(tauri_plugin_dialog::init())
