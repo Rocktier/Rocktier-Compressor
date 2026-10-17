@@ -155,9 +155,26 @@ fn macos_platform_uuid() -> String {
         .and_then(|s| {
             s.lines()
                 .find(|l| l.contains("IOPlatformUUID"))
-                .and_then(|l| l.split('"').nth(1))
-                .map(|v| format!("mac:{}", v))
+                .map(parse_ioreg_uuid)
+                .filter(|v| !v.is_empty())
         })
+        .unwrap_or_default()
+}
+
+/// 从 `ioreg` 输出的一行取 IOPlatformUUID 的**值**。
+///
+/// 行形如 `      "IOPlatformUUID" = "XXXXXXXX-…"`：值是行内最后一个空白分隔
+/// token（带引号），去掉引号即得。此前用 `split('"').nth(1)` 取到的是**键名**
+/// （第 1 段是引号前空白、第 2 段是键名、第 4 段才是值），导致所有 Mac 的
+/// 指纹恒为字面量 `mac:IOPlatformUUID` —— 设备记账在 macOS 上把全网机器
+/// 记成同一台，试用双绑的「换机重新给满」也随之失效。
+#[cfg(target_os = "macos")]
+fn parse_ioreg_uuid(line: &str) -> String {
+    line.split_whitespace()
+        .last()
+        .map(|v| v.trim_matches('"'))
+        .filter(|v| !v.is_empty())
+        .map(|v| format!("mac:{}", v))
         .unwrap_or_default()
 }
 
@@ -380,6 +397,21 @@ mod tests {
 
     fn fp() -> String {
         "win:test-guid".to_string()
+    }
+
+    /// 指纹提取必须取到 UUID 的**值**，而不是键名（回归：`split('"').nth(1)`
+    /// 曾让所有 Mac 的指纹恒为字面量 `mac:IOPlatformUUID`）。
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn ioreg_line_yields_the_value_not_the_key_name() {
+        let line = "      \"IOPlatformUUID\" = \"0B507B8C-69BA-59FD-BC4C-6B25C491C418\"";
+        assert_eq!(
+            parse_ioreg_uuid(line),
+            "mac:0B507B8C-69BA-59FD-BC4C-6B25C491C418",
+            "必须取到引号里的值"
+        );
+        // 空值（异常输出）必须落到空串，由调用方按「取不到指纹」处理。
+        assert_eq!(parse_ioreg_uuid("      \"IOPlatformUUID\" = \"\""), "");
     }
 
     #[test]
