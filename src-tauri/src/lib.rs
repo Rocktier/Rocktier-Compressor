@@ -133,6 +133,7 @@ fn license_info() -> LicenseInfo {
             crate::license::Status::Licensed { product } => Some(product.clone()),
             _ => None,
         },
+        txn,
         enforcing: crate::license::enforced(),
         channel: crate::license::channel().to_string(),
         activation_configured: !crate::license::PUBLIC_KEY_B64.trim().is_empty(),
