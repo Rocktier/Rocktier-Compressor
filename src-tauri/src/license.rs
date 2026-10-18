@@ -33,7 +33,7 @@ pub const TRIAL_DAYS: i64 = 7;
 /// Compressor 购买条目），先只记账（试用状态照算、胶囊照显）不拦截。
 /// **官网上架可购后改 true**；本文件尾部的
 /// `a_configured_key_in_the_direct_channel_engages_the_gate` 随断言自动收紧。
-pub const ENFORCE: bool = false;
+pub const ENFORCE: bool = true;
 
 /// 分发渠道。
 ///
