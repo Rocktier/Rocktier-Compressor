@@ -602,30 +602,28 @@ body {
    有可用更新时才转 accent：用户没要求被提醒，就不该用徽标催他。 */
 .update-corner {
   position: fixed;
-  /* 让开 statusbar（56px） */
-  right: 14px;
   bottom: 64px;
   z-index: 20;
   display: flex;
   flex-direction: column;
   align-items: flex-end;
   gap: 2px;
-  opacity: 0.5;
-  transition: opacity 0.15s ease;
 }
 
-.update-corner:hover,
-.update-corner.has-update {
-  opacity: 1;
+.update-line:hover {
+  border-color: var(--border-hover, var(--accent));
+  color: var(--text, var(--text-primary, inherit));
 }
 
 .update-line {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: 5px;
-  padding: 0;
-  border: none;
-  background: none;
+  min-height: 24px;
+  padding: 0 8px;
+  border: 1px solid var(--border, rgba(128, 128, 128, 0.25));
+  border-radius: 999px;
+  background: var(--card, transparent);
   color: var(--text-tertiary, var(--text-muted, #888));
   font-family: inherit;
   font-size: var(--fs-2xs, 11px);
@@ -656,6 +654,7 @@ body {
 }
 
 .update-get {
+  min-height: 24px;
   padding: 2px 8px;
   border: 1px solid var(--accent, #ffffff);
   border-radius: 999px;
