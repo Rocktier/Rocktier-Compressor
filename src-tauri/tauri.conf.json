@@ -176,20 +176,11 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https: http:; font-src 'self' data:; connect-src 'self'; object-src 'none'; frame-src 'none'; form-action 'none'; base-uri 'self'"
+      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https: http:; font-src 'self' data:; connect-src 'self' https://api.github.com; object-src 'none'; frame-src 'none'; form-action 'none'; base-uri 'self'"
     }
   },
   "plugins": {
     "dialog": null,
-    "fs": null,
-    "updater": {
-      "endpoints": [
-        "https://github.com/Rocktier/Rocktier-Compressor/releases/latest/download/latest.json"
-      ],
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDM0OEU2RkNDRTA3RUZFMTIKUldRUy9uN2d6RytPTkxoZk1yUXFjeWV4K2JSWUszZ1ZhbUVnRytOa3RvbDVseVh1NEtjdnlLNkEK",
-      "windows": {
-        "installMode": "passive"
-      }
-    }
+    "fs": null
   }
 }

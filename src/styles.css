@@ -596,3 +596,76 @@ body {
   background: transparent;
   border: 1px solid var(--text-tertiary, var(--text-muted, #888));
 }
+
+/* ── 更新检查入口（右下角固定）────────────────────────────────────────
+   点击才联网：启动时、工作中、后台都不检查，见 services/updates.ts 头注。
+   有可用更新时才转 accent：用户没要求被提醒，就不该用徽标催他。 */
+.update-corner {
+  position: fixed;
+  /* 让开 statusbar（56px） */
+  right: 14px;
+  bottom: 64px;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  opacity: 0.5;
+  transition: opacity 0.15s ease;
+}
+
+.update-corner:hover,
+.update-corner.has-update {
+  opacity: 1;
+}
+
+.update-line {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--text-tertiary, var(--text-muted, #888));
+  font-family: inherit;
+  font-size: var(--fs-2xs, 11px);
+  text-align: right;
+  cursor: pointer;
+}
+
+.update-line:disabled {
+  cursor: default;
+}
+
+.update-ver {
+  font-variant-numeric: tabular-nums;
+}
+
+.update-sep {
+  opacity: 0.45;
+}
+
+.update-note {
+  color: var(--text-tertiary, var(--text-muted, #888));
+  font-size: var(--fs-2xs, 11px);
+  text-align: right;
+}
+
+.update-corner.has-update .update-note {
+  color: var(--accent, #ffffff);
+}
+
+.update-get {
+  padding: 2px 8px;
+  border: 1px solid var(--accent, #ffffff);
+  border-radius: 999px;
+  background: none;
+  color: var(--accent, #ffffff);
+  font-size: var(--fs-2xs, 11px);
+  cursor: pointer;
+}
+
+.update-get:hover {
+  background: var(--accent, #ffffff);
+  color: var(--bg, #0a0a0a);
+}

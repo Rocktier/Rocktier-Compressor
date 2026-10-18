@@ -459,6 +459,7 @@ struct MenuStrings {
     website: &'static str,
     about: &'static str,
     license: &'static str,
+    check_updates: &'static str,
 }
 
 impl MenuStrings {
@@ -471,6 +472,7 @@ impl MenuStrings {
                 window: "窗口", add_files: "添加文件…", add_folder: "添加文件夹…",
                 start: "开始压缩", help: "帮助", support: "获取支持",
                 website: "访问 rocktier.com", about: "关于 Rocktier Compressor",
+                check_updates: "检查更新…",
                 license: "许可与激活…",
             },
             "ja" => Self {
@@ -478,6 +480,7 @@ impl MenuStrings {
                 window: "ウインドウ", add_files: "ファイルを追加…", add_folder: "フォルダーを追加…",
                 start: "圧縮を開始", help: "ヘルプ", support: "サポート",
                 website: "rocktier.com を開く", about: "Rocktier Compressor について",
+                check_updates: "アップデートを確認…",
                 license: "ライセンス…",
             },
             "ko" => Self {
@@ -485,6 +488,7 @@ impl MenuStrings {
                 window: "창", add_files: "파일 추가…", add_folder: "폴더 추가…",
                 start: "압축 시작", help: "도움말", support: "지원 받기",
                 website: "rocktier.com 방문", about: "Rocktier Compressor 정보",
+                check_updates: "업데이트 확인…",
                 license: "라이선스…",
             },
             "de" => Self {
@@ -492,6 +496,7 @@ impl MenuStrings {
                 window: "Fenster", add_files: "Dateien hinzufügen…", add_folder: "Ordner hinzufügen…",
                 start: "Komprimieren starten", help: "Hilfe", support: "Support erhalten",
                 website: "rocktier.com besuchen", about: "Über Rocktier Compressor",
+                check_updates: "Nach Updates suchen…",
                 license: "Lizenz…",
             },
             "es" => Self {
@@ -499,6 +504,7 @@ impl MenuStrings {
                 window: "Ventana", add_files: "Añadir archivos…", add_folder: "Añadir carpeta…",
                 start: "Empezar a comprimir", help: "Ayuda", support: "Obtener soporte",
                 website: "Visitar rocktier.com", about: "Acerca de Rocktier Compressor",
+                check_updates: "Buscar actualizaciones…",
                 license: "Licencia…",
             },
             "pt" => Self {
@@ -506,13 +512,15 @@ impl MenuStrings {
                 window: "Janela", add_files: "Adicionar arquivos…", add_folder: "Adicionar pasta…",
                 start: "Iniciar compressão", help: "Ajuda", support: "Obter suporte",
                 website: "Visitar rocktier.com", about: "Sobre o Rocktier Compressor",
-                license: "Licença…",
+                check_updates: "Verificar atualizações…",
+                license: "Licença…","Licença…",
             },
             "ar" => Self {
                 app: "Rocktier Compressor", file: "ملف", edit: "تحرير", view: "عرض",
                 window: "نافذة", add_files: "إضافة ملفات…", add_folder: "إضافة مجلد…",
                 start: "ابدأ الضغط", help: "مساعدة", support: "الحصول على الدعم",
                 website: "زيارة rocktier.com", about: "حول Rocktier Compressor",
+                check_updates: "التحقق من التحديثات…",
                 license: "الترخيص…",
             },
             // English is both the family default and the fallback.
@@ -521,6 +529,7 @@ impl MenuStrings {
                 window: "Window", add_files: "Add Files…", add_folder: "Add Folder…",
                 start: "Start Compress", help: "Help", support: "Get Support",
                 website: "Visit rocktier.com", about: "About Rocktier Compressor",
+                check_updates: "Check for Updates…",
                 license: "License…",
             },
         }
@@ -629,6 +638,9 @@ fn build_menu(app: tauri::AppHandle, lang: String) -> Result<(), String> {
         m.help,
         true,
         &[
+            // 检查更新：只 emit "check-updates"，联网由前端 services/updates.ts 做。
+            &MenuItem::with_id(&app, "check-updates", m.check_updates, true, None::<&str>)
+                .map_err(|e| e.to_string())?,
             // 购买页面上写着"打开应用 → License → 输入激活码"，所以应用里必须真有一个能到
             // 那儿的入口（授权胶囊在已激活/商店版下会隐藏，帮助菜单是常驻入口）。
             &MenuItem::with_id(&app, "license", m.license, true, None::<&str>)

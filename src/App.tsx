@@ -13,6 +13,7 @@ import {
   isLicenseExpiredError,
   type LicenseInfo,
 } from "./services/license";
+import { checkForUpdates, currentVersion, type UpdateResult } from "./services/updates";
 
 type Profile = { name: string; label: string; description: string; quality: string };
 type CompressResult = {
@@ -97,6 +98,13 @@ function DropzoneGlyph() {
     </svg>
   );
 }
+const UPDATE_CHECKED_KEY = "rocktier.updateCheckedAt";
+
+/** 打包时写死，与 tag 同源 —— 不会出现系统里装着新版本而代码里写着旧版本的错位。 */
+const APP_VERSION = currentVersion();
+
+type UpdateState = "idle" | "checking" | "uptodate" | "available" | "failed";
+
 export default function App() {
   const [lang, setLang] = useState<Lang>(() => {
     const saved = localStorage.getItem("rocktier.lang");
@@ -162,6 +170,36 @@ export default function App() {
     setLicenseOpen(true);
     refreshLicense();
   }, [refreshLicense]);
+
+  /* 更新检查。状态只由用户点击推进 —— 没有任何 effect 会自动跑它，
+     这是「除非你要求，应用不会联网」这条承诺的落点。 */
+  const [updateState, setUpdateState] = useState<UpdateState>("idle");
+  const [updateResult, setUpdateResult] = useState<UpdateResult | null>(null);
+  const [lastCheckedAt, setLastCheckedAt] = useState<number | null>(() => {
+    const raw = localStorage.getItem(UPDATE_CHECKED_KEY);
+    const n = raw ? Number(raw) : 0;
+    return n > 0 ? n : null;
+  });
+  const updateChecking = useRef(false);
+
+  /* 检查更新。**只有这里会触发联网检查** —— 右下角入口与帮助菜单共用。
+     用 ref 而非 state 判重：连点两次不该发出两个请求。 */
+  const runUpdateCheck = useCallback(async () => {
+    if (updateChecking.current) return;
+    updateChecking.current = true;
+    setUpdateState("checking");
+    try {
+      const result = await checkForUpdates();
+      setUpdateResult(result);
+      setLastCheckedAt(result.checkedAt);
+      try { localStorage.setItem(UPDATE_CHECKED_KEY, String(result.checkedAt)); } catch { /* 隐私模式下忽略 */ }
+      setUpdateState(result.hasUpdate ? "available" : "uptodate");
+    } catch {
+      setUpdateState("failed");
+    } finally {
+      updateChecking.current = false;
+    }
+  }, []);
 
   useEffect(() => {
     refreshLicense();
@@ -361,6 +399,7 @@ export default function App() {
           else if (id === "add-folder") openAddFolder();
           else if (id === "compress") compress();
           else if (id === "license") openLicense();
+          else if (id === "check-updates") void runUpdateCheck();
           else if (id === "website") invoke("open_url", { url: "https://rocktier.com" });
           else if (id === "support") invoke("open_url", { url: "https://rocktier.com/support" });
           // 此前菜单项被创建但前端无分支 → 点了完全无反应（家族审查发现）。
@@ -590,9 +629,53 @@ export default function App() {
 
       {/* 许可与激活（家族 L6）。到期写操作被拦时由 Rust 发 license-expired
           事件弹这里，菜单「许可与激活」也走同一个 openLicense()。 */}
+      {/* 更新检查入口。固定右下角 —— 点击才联网：启动时、工作中、后台都不检查，
+          见 services/updates.ts 头注。 */}
+      <div className={`update-corner${updateState === "available" ? " has-update" : ""}`}>
+        <button
+          type="button"
+          className="update-line"
+          onClick={() => void runUpdateCheck()}
+          disabled={updateState === "checking"}
+          title={t("点击才会联网，应用不会自动检查", "Only checks when you click — the app never checks on its own")}
+        >
+          <span className="update-ver">v{APP_VERSION}</span>
+          <span className="update-sep" aria-hidden="true">·</span>
+          <span className="update-action">
+            {updateState === "checking" ? t("正在检查…", "Checking…") : t("检查更新", "Check for updates")}
+          </span>
+        </button>
+        <div className="update-note" role="status" aria-live="polite">
+          {updateState === "uptodate" && t("已是最新版本", "You're up to date")}
+          {updateState === "failed" && t("检查失败，请稍后再试", "Couldn't check for updates")}
+          {updateState === "available" && updateResult && (
+            <button
+              type="button"
+              className="update-get"
+              onClick={() => void invoke("open_url", { url: updateResult.url }).catch(() => {})}
+              title={t("有新版本 ", "Version ") + updateResult.latest}
+            >
+              {t("获取 ", "Get ")}{updateResult.latest}
+            </button>
+          )}
+          {updateState === "idle" &&
+            t("上次检查：", "Last checked ") + (lastCheckedAt ? formatCheckedAt(lastCheckedAt, lang) : t("从未检查", "Never"))}
+        </div>
+      </div>
       {licenseOpen && (
         <LicenseDialog info={license} lang={lang} onRefresh={refreshLicense} onClose={() => setLicenseOpen(false)} />
       )}
     </div>
   );
+}
+
+/**
+ * 「上次检查」的时间戳格式化。lang 在组件闭包里（zh/en），直接用它。
+ */
+function formatCheckedAt(ts: number, lang: Lang): string {
+  try {
+    return new Date(ts).toLocaleDateString(lang === "zh" ? "zh-CN" : "en");
+  } catch {
+    return new Date(ts).toISOString().slice(0, 10);
+  }
 }
