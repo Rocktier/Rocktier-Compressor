@@ -513,7 +513,7 @@ impl MenuStrings {
                 start: "Iniciar compressão", help: "Ajuda", support: "Obter suporte",
                 website: "Visitar rocktier.com", about: "Sobre o Rocktier Compressor",
                 check_updates: "Verificar atualizações…",
-                license: "Licença…","Licença…",
+                license: "Licença…",
             },
             "ar" => Self {
                 app: "Rocktier Compressor", file: "ملف", edit: "تحرير", view: "عرض",
