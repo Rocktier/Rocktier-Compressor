@@ -1,5 +1,7 @@
 /* Rocktier 家族设计令牌（L0 母版）——构建期拷贝，各产品不得手改。
-   铁律：[data-theme="light"] 必须定义与 :root 完全相同的令牌集。 */
+   铁律：[data-theme="light"] 必须定义与 :root 完全相同的令牌集。
+   2026-10-16：--fs-* 字号阶梯与 --sp-* 间距栅格降级为「参考实现」——密度属产品层
+   （UI 规范 §1.2/§2.2），产品可裸写 px；引用令牌时其值仍以本文件为唯一真源。 */
 
 :root,
 [data-theme="dark"] {
@@ -23,6 +25,10 @@
   --red: #ff4a3d;
   --red-strong: #cc3a30;
   --red-soft: #ff6b5e;
+  /* 文字安全红：--red/--red-strong 作为 13px 文字时浅档只有 3.98/5.63 中的暗档 3.69:1
+     （.chip.active 等选中态文字），不足以单独当文字色。--red-ink 两档都 ≥4.5:1
+     （暗档 #ff4a3d on #141414 = 5.53，浅档 #c0392b on #ffffff = 5.63）。描边/圆点仍用 --red。 */
+  --red-ink: #ff4a3d;
   --on-brand: #ffffff;
   --accent-brand: var(--red);
   --danger: #ff4a3d;
@@ -158,6 +164,7 @@
   --red: #e64537;
   --red-strong: #c0392b;
   --red-soft: #ff6b5e;
+  --red-ink: #c0392b;
   --on-brand: #ffffff;
   --accent-brand: var(--red);
   /* 浅色档 --danger 原为 #e64537 = 白底 3.98:1、#f5f5f5 3.65:1，达不到 AA 正文 4.5:1。
