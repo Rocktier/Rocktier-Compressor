@@ -25,9 +25,10 @@
   --red: #ff4a3d;
   --red-strong: #cc3a30;
   --red-soft: #ff6b5e;
-  /* 文字安全红：--red/--red-strong 作为 13px 文字时浅档只有 3.98/5.63 中的暗档 3.69:1
-     （.chip.active 等选中态文字），不足以单独当文字色。--red-ink 两档都 ≥4.5:1
-     （暗档 #ff4a3d on #141414 = 5.53，浅档 #c0392b on #ffffff = 5.63）。描边/圆点仍用 --red。 */
+  /* 文字安全红：--red/--red-strong 作为 13px 文字时各有一档不达标
+     （浅档 --red #e64537 on #ffffff = 3.98，暗档 --red-strong #cc3a30 on #141414 = 3.70），
+     不足以单独当文字色（.chip.active 等选中态文字）。--red-ink 两档都 ≥4.5:1
+     （暗档 #ff4a3d on #141414 = 5.53，浅档 #c0392b on #ffffff = 5.44）。描边/圆点仍用 --red。 */
   --red-ink: #ff4a3d;
   --on-brand: #ffffff;
   --accent-brand: var(--red);
