@@ -53,12 +53,26 @@ export async function revalidateLicence(): Promise<"ok" | "revoked" | "unknown">
   const info = await licenseStatus();
   if (!info.txn) return "unknown";
   try {
-    const res = await fetch(`https://rocktier.com/api/revalidate?txn=${encodeURIComponent(info.txn)}`);
+    /* B4：吊销复检是「顺手而为」的后台校验（挂在检查更新点击上），网络挂死
+       不该拖住整个更新检查 —— 8s 超时后按 unknown 放行（fail-open：宁可漏
+       一次复检，不可让检查更新卡死）。 */
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 8000);
+    try {
+      const res = await fetch(`https://rocktier.com/api/revalidate?txn=${encodeURIComponent(info.txn)}`, { signal: ctrl.signal });
     if (!res.ok) return "unknown";
-    const data = (await res.json()) as { revoked?: boolean };
+      const data = (await res.json()) as { revoked?: boolean };
+      /* 响应里没有 revoked 字段 = 服务端 API 形状变了。静默 fail-open 会让
+         吊销永久失效且无人知晓，至少留一条线索给排障。 */
+      if (!("revoked" in data)) {
+        console.warn('license: revalidate response has no "revoked" field — API shape changed?');
+      }
     if (!data.revoked) return "ok";
     await invoke("clear_receipt");
     return "revoked";
+    } finally {
+      clearTimeout(timer);
+    }
   } catch {
     return "unknown";
   }

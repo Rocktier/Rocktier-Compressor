@@ -452,6 +452,17 @@ body {
 .license-close:hover { color: var(--text); }
 
 .license-body p { margin: 0 0 10px; }
+
+/* 吊销通告（B1）：回执已清、info 与试用到期无从区分，靠调用方传 revoked 标记。
+   文字用 --danger（浅档 #b8342a = 5.02:1、暗档 #ff4a3d = 5.53:1，均达 AA）。 */
+.license-revoked-notice {
+  border: 1px solid var(--danger);
+  border-radius: 8px;
+  padding: 8px 10px;
+  color: var(--danger);
+}
+.license-revoked-notice small { color: inherit; }
+
 .license-body small { color: var(--text-muted); line-height: 1.5; }
 
 .license-field {

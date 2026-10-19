@@ -12,6 +12,8 @@ interface LicenseDialogProps {
   lang: Lang;
   onRefresh: () => void;
   onClose: () => void;
+  /** 吊销复检判定 revoked 时为 true —— 顶部显示专属通告（B1：退款客户的正面伤口）。 */
+  revoked?: boolean;
 }
 
 /** 打开产品页：桌面端走 Rust 白名单入口，浏览器 dev 直接开新窗口。 */
@@ -30,7 +32,7 @@ function buy() {
  * 微软代收、授权也由商店判定，在这里再摆一个输入框只会让人以为要在别处再买一次
  * （而且会给商店审核留下"引导外部购买"的口实）。
  */
-export function LicenseDialog({ info, lang, onRefresh, onClose }: LicenseDialogProps) {
+export function LicenseDialog({ info, lang, onRefresh, onClose, revoked = false }: LicenseDialogProps) {
   /* 8 门语言查表（见 i18n.ts）。签名不变，所以 42 个调用点无需改动。 */
   /* 签名保留 (zh, en) 以免改动调用点；实际按英文原文查表。 */
   /* zh 走内联第一参数，其余 7 门查表。见 App.tsx 同处注释：
@@ -105,6 +107,12 @@ export function LicenseDialog({ info, lang, onRefresh, onClose }: LicenseDialogP
         </div>
         <div className="license-body">
           <p>{statusLine()}</p>
+
+          {revoked ? (
+            <p className="license-revoked-notice">
+              <small>{t("该许可已被吊销 —— 通常是退款或支付争议导致。授权状态已重置。在下方重新激活即可继续使用；若你认为这是误判，请把订单号发到 hello@rocktier.com。", "This licence has been revoked — usually after a refund or a payment dispute. Your licence status has been reset. Activate again below to continue, or write to hello@rocktier.com (with your order number) if you believe this is a mistake.")}</small>
+            </p>
+          ) : null}
 
           {licensed ? (
             <p>

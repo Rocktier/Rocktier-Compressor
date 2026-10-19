@@ -124,6 +124,9 @@ export default function App() {
   // 授权（家族 L6）：状态记账 + 对话框开关。null = 尚未取到（或浏览器 dev）。
   const [license, setLicense] = useState<LicenseInfo | null>(null);
   const [licenseOpen, setLicenseOpen] = useState(false);
+  /* B1：吊销复检判定 revoked 时置位，激活框顶部显示「许可已被吊销」专属通告 ——
+     回执已清、info 与试用到期无从区分，verdict 是唯一可靠的传递点。 */
+  const [licenseRevoked, setLicenseRevoked] = useState(false);
 
   // Refs that always hold the latest values, so the once-registered menu /
   // event listeners and the per-file compress loop never read stale state.
@@ -199,6 +202,7 @@ export default function App() {
          授权状态回到未激活并弹激活对话框。 */
       const verdict = await revalidateLicence();
       if (verdict === "revoked") {
+        setLicenseRevoked(true);
         refreshLicense();
         setLicenseOpen(true);
       }
@@ -671,7 +675,13 @@ export default function App() {
         </div>
       </div>
       {licenseOpen && (
-        <LicenseDialog info={license} lang={lang} onRefresh={refreshLicense} onClose={() => setLicenseOpen(false)} />
+        <LicenseDialog
+          info={license}
+          lang={lang}
+          revoked={licenseRevoked}
+          onRefresh={refreshLicense}
+          onClose={() => { setLicenseOpen(false); setLicenseRevoked(false); }}
+        />
       )}
     </div>
   );
