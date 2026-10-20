@@ -713,7 +713,12 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_opener::init())
-        .plugin(tauri_plugin_updater::Builder::new().build())
+        // 刻意不注册 updater 插件：更新只做「告诉你有新版本 + 给下载页链接」
+        // （src/services/updates.ts），不做静默下载自替换 —— 既符合「除非你要求
+        // 不联网」的承诺，也免掉每款产品一套签名密钥。
+        // ⚠️ 这里和 tauri.conf.json 的 plugins.updater 必须同生同死：配置段删了
+        // 而插件还注册，Tauri 会反序列化到 null 直接 panic，应用起不来
+        // （v0.1.9 双击无反应就是这个原因）。要恢复自动更新，两边一起加回来。
         .setup(|app| {
             let handle = app.handle().to_owned();
             let initial = {
