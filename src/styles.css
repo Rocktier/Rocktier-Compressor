@@ -609,74 +609,94 @@ body {
   border: 1px solid var(--text-tertiary, var(--text-muted, #888));
 }
 
-/* ── 更新检查入口（右下角固定）────────────────────────────────────────
+/* ── 检查更新对话框（入口：帮助菜单「检查更新…」）────────────────────
    点击才联网：启动时、工作中、后台都不检查，见 services/updates.ts 头注。
-   有可用更新时才转 accent：用户没要求被提醒，就不该用徽标催他。 */
-.update-corner {
+   早期版本在右下角放了常驻悬浮入口，fixed 定位漏了 right 会盖住底部
+   内容（v0.1.10 实测），故全部收进菜单 + 本对话框。 */
+.update-overlay {
   position: fixed;
-  bottom: 64px;
-  z-index: 20;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  z-index: 60;
   display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 2px;
-}
-
-.update-line:hover {
-  border-color: var(--border-hover, var(--accent));
-  color: var(--text, var(--text-primary, inherit));
-}
-
-.update-line {
-  display: inline-flex;
   align-items: center;
-  gap: 5px;
-  min-height: 24px;
-  padding: 0 8px;
-  border: 1px solid var(--border, rgba(128, 128, 128, 0.25));
-  border-radius: 999px;
-  background: var(--card, transparent);
-  color: var(--text-tertiary, var(--text-muted, #888));
-  font-family: inherit;
-  font-size: var(--fs-2xs, 11px);
-  text-align: right;
-  cursor: pointer;
+  justify-content: center;
+  backdrop-filter: blur(2px);
 }
 
-.update-line:disabled {
-  cursor: default;
+.update-dialog {
+  width: min(440px, calc(100vw - 48px));
+  max-height: min(80vh, 560px);
+  overflow-y: auto;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: 0 16px 48px var(--page-shadow, rgba(0, 0, 0, 0.5));
+  padding: 16px 18px;
+  font-size: 13px;
+  color: var(--text);
 }
 
-.update-ver {
-  font-variant-numeric: tabular-nums;
+.update-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
 }
 
-.update-sep {
-  opacity: 0.45;
+.update-header h3 {
+  margin: 0;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text);
+  font-weight: 600;
 }
 
-.update-note {
-  color: var(--text-tertiary, var(--text-muted, #888));
-  font-size: var(--fs-2xs, 11px);
-  text-align: right;
-}
-
-.update-corner.has-update .update-note {
-  color: var(--accent, #ffffff);
-}
-
-.update-get {
-  min-height: 24px;
-  padding: 2px 8px;
-  border: 1px solid var(--accent, #ffffff);
-  border-radius: 999px;
+.update-close {
   background: none;
-  color: var(--accent, #ffffff);
-  font-size: var(--fs-2xs, 11px);
+  border: none;
+  color: var(--text-muted);
+  font-size: 18px;
   cursor: pointer;
+  padding: 0 4px;
+  line-height: 1;
+}
+.update-close:hover { color: var(--text); }
+
+.update-body p { margin: 0 0 10px; }
+
+.update-body small { color: var(--text-muted); line-height: 1.5; }
+
+.update-footer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
 }
 
-.update-get:hover {
-  background: var(--accent, #ffffff);
-  color: var(--bg, #0a0a0a);
+.update-footer-spacer { flex: 1; }
+
+.update-footer button {
+  padding: 6px 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-family: var(--font-sans);
+  font-size: 12px;
+  color: var(--text);
+  background: var(--surface-2);
+  cursor: pointer;
+}
+.update-footer button:hover:not(:disabled) {
+  border-color: var(--brand);
+}
+
+/* 「获取 v…」主按钮：有新版时唯一需要用户点的动作，用 accent 让它显眼。 */
+.update-footer button.update-get-btn {
+  background: var(--accent);
+  border-color: transparent;
+  color: var(--on-accent);
+  font-weight: 600;
 }
