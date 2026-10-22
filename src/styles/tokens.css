@@ -395,6 +395,24 @@
   background: var(--bg-card);
 }
 
+/* 特异性保险（2026-10-22 原语收编时补）：
+ * OCR 的 index.html 有一条全局 `button:hover:not(:disabled)`（0,2,1），
+ * 加载在 tokens.css 之后，会静默吃掉上面的 `.icon-btn:hover`（0,2,0）——
+ * 主题按钮的 hover 曾在 OCR 里失效，产品侧被迫写 `button.icon-btn:hover`
+ * 特异度 hack 兜底（注释自称「必须带上 button 前缀抬回同一档」）。
+ * 母版直接抬到 (0,3,1)：对没有全局 button 规则的产品，这两条与裸规则
+ * 等价（禁用态本就不该有 hover / active 反馈）；OCR 的 hack 随之删除，
+ * 原语从此只有一份定义。 */
+button.icon-btn:hover:not(:disabled) {
+  background: var(--bg-card-hover);
+  border-color: var(--border);
+  color: var(--text-primary);
+}
+
+button.icon-btn:active:not(:disabled) {
+  background: var(--bg-card);
+}
+
 /* 视觉 28px，命中区 40px（满足无障碍最小点击区而不放大视觉尺寸） */
 .icon-btn::after {
   content: "";

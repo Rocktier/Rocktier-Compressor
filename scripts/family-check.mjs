@@ -209,6 +209,77 @@ async function runChecks(id, product, dir) {
     }
   }
 
+  /* 2b. icon-btn-single-source：.icon-btn 原语只允许 tokens.css 快照一份定义
+   *
+   * 2026-10-12 审计 §9 实锤：母版定义 9 条 .icon-btn* 规则，每款产品又在主样式表
+   * 里复刻一遍（7-14 处/款），同一原语每个 App 存在两份定义，产品侧靠源码序
+   * 获胜 —— 母版「一处改、九处生效」的价值归零。更糟的是复刻会漂移：母版
+   * 2026-10-04 把主题角标从红点改成中性灰，9 份复刻里仍写着 --red，用户看到
+   * 的其实是旧红点（复刻 shadow 了母版修复）。OCR 的复刻为了压过自己的全局
+   * button:hover 规则还写了特异度 hack，注释自己写着「必须带上 button 前缀」。
+   *
+   * 2026-10-22 收编（世界百佳评审 §6.4）：母版补 button.icon-btn:hover/:active
+   * （:not(:disabled) 抬到 (0,3,1)，对无全局 button 规则的产品与裸规则等价），
+   * 9 份复刻全删，后续一致性由已有的 tokens-snapshot-diff 字节级闸门接管。
+   * 本规则守住「不再长回来」。
+   *
+   * 判据：主样式表（tokens.css 快照除外）与 index.html 内联 <style> 里不得出现
+   * .icon-btn 基座定义（裸类 / :hover / :active / ::after / ::before / [data-mode]
+   * 变体 / svg 子项 / button 前缀变体）。产品特有的**使用规则**不拦 —— 如
+   * Pic2Webp/OCR 的 `.icon-btn .sun` 图标互斥、容器内的上下文覆盖。
+   * 注释里的提及不算（先剥注释再扫，且保持行号不变）。 */
+  {
+    const ICON_BASE = /^(?:button)?\.icon-btn(?::[\w-]+(?:\([^)]*\))?|::[\w-]+|\[[^\]]*\])*(?:\s+svg)?$/;
+    // 剥注释但保留行号（注释内容换成等长空白，原换行不动），扫描才能报准 file:line
+    const blankComments = (css) => css.replace(/\/\*[\s\S]*?\*\//g, (m) => m.replace(/[^\n]/g, " "));
+    /** 逐字符扫 CSS：{ 之前累积的是选择器（按逗号拆 compound 逐一判），} 重置。
+     *  声明块内的内容不进选择器判定；@media 等 at-rule 头不匹配 ICON_BASE，天然放过。
+     *  行号报**选择器最后一个非空字符所在行**（不是上一个 } 的行）—— 复刻块
+     *  头顶常有注释，报 } 的行会指错地方。 */
+    const scanCss = (text, label) => {
+      const hits = [];
+      let buf = "";
+      let lastContentLine = 1;
+      text.split("\n").forEach((line, i) => {
+        for (const ch of line) {
+          if (ch === "{") {
+            const head = buf.trim();
+            if (head && !head.includes(";")) {
+              for (const compound of head.split(",")) {
+                if (ICON_BASE.test(compound.trim())) {
+                  hits.push(`${label}:${lastContentLine} ${compound.trim()}`);
+                }
+              }
+            }
+            buf = "";
+          } else if (ch === "}") {
+            buf = "";
+          } else {
+            if (!/\s/.test(ch)) lastContentLine = i + 1;
+            buf += ch;
+          }
+        }
+        buf += "\n";
+      });
+      return hits;
+    };
+    const cssFiles = walkFe([".css"]).filter((p) => basename(p) !== "tokens.css");
+    const htmlPaths = [join(dir, "index.html"), ...feDirs.map((d) => join(d, "index.html"))].filter(existsSync);
+    const htmlStyleBlocks = (html) => [...html.matchAll(/<style[^>]*>([\s\S]*?)<\/style>/gi)].map((m) => m[1]);
+    let hits = [];
+    for (const p of cssFiles) hits.push(...scanCss(blankComments(read(p)), basename(p)));
+    for (const p of htmlPaths) {
+      const html = read(p);
+      htmlStyleBlocks(html).forEach((b, bi) => {
+        const startLine = html.slice(0, html.indexOf(b)).split("\n").length;
+        hits.push(...scanCss(blankComments(b), `index.html<style#${bi + 1}>`)
+          .map((h) => h.replace(/^([^:]+):(\d+)/, (_s, lab, n) => `${lab}:${startLine + Number(n) - 1}`)));
+      });
+    }
+    add(id, "icon-btn-single-source", hits.length ? "FAIL" : "PASS",
+      hits.length ? `${hits.length} 处 .icon-btn 复刻定义（快照外不许有第二份）: ${hits.slice(0, 4).join("; ")}` : "原语单一真源（仅 tokens.css 快照）");
+  }
+
   /* 3. i18n-key-reconciliation：en ↔ zh 键双向对账
      各产品字典形态差异极大（分文件 / 语言块 / 条目共置 / 无字典），
      因此用**按产品显式声明的适配表**取代全局正则——避免一款的改动打到另一款。 */

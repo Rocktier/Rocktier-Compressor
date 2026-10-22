@@ -6,6 +6,7 @@ import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { open } from "@tauri-apps/plugin-dialog";
 import { LicenseDialog } from "./components/LicenseDialog";
 import { UpdateDialog } from "./components/UpdateDialog";
+import { isMacOS } from "./utils/platform";
 import { useTheme } from "./hooks/useTheme";
 import { localizeError } from "./services/errorText";
 import {
@@ -149,6 +150,11 @@ export default function App() {
    * 于是中文用户永远看到英文（STRINGS.zh 不存在 → 回落英文原文）。 */
   const t = (zh: string, en: string) =>
     langRef.current === "zh" ? zh : lookup(langRef.current as Lang, en);
+  // 结果行「显示输出文件」按钮：文件管理器名称随平台（评审罪状 #9，
+  // 曾写死「在访达中显示 / Show in Finder」，Windows 用户看到 macOS 术语）。
+  const revealLabel = isMacOS()
+    ? t("在访达中显示", "Show in Finder")
+    : t("在文件资源管理器中显示", "Show in File Explorer");
   // 主题：auto → light → dark 三态（家族 §6.5）。label 走 t() 所以要等 lang 定下来。
   const { mode: themeMode, cycleTheme } = useTheme();
   const themeLabel =
@@ -550,8 +556,8 @@ export default function App() {
                   {f.status === "done" && f.result?.outputPath ? (
                     <button
                       className="row-x"
-                      title={t("在访达中显示", "Show in Finder")}
-                      aria-label="Reveal"
+                      title={revealLabel}
+                      aria-label={revealLabel}
                       onClick={() => invoke("reveal_path", { path: f.result!.outputPath })}
                     >
                       ↗
