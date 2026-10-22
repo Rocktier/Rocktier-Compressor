@@ -1,0 +1,5 @@
+{
+  "bundle": {
+    "resources": ["compress-engine-windows.exe"]
+  }
+}

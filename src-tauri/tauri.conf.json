@@ -15,10 +15,7 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
-    "resources": [
-      "compress-engine-windows.exe",
-      "compress-engine-macos"
-    ],
+    "resources": [],
     "fileAssociations": [
       {
         "ext": [
