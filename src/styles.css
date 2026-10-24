@@ -285,11 +285,14 @@ body {
   padding: 12px 16px;
   border-top: 1px solid var(--border);
   background: var(--surface);
-  /* 三组控制项整体水平居中。此前缺 justify-content，恒 flex-start 贴左：
-     960px（min 780px）窗口下右侧空 200-300px。这不是 Windows 特有 ——
-     两端跑同一份 CSS、同一个窗口配置，观感完全一致（2026-10-24 用户报障
-     「profile / quality / target size 偏左」的本处修复）。 */
-  justify-content: center;
+  /* 三组控制项平铺整行（2026-10-24 用户报障「下面所有的功能区整体偏左」
+     的最终形态）：此前缺 justify-content，恒 flex-start 贴左；改 center
+     只是把三组作为一个整体居中，第三组右侧仍空 200-300px（用户红框处）。
+     经确认该区域无预留用途（controls 内只有这三个组，无计划中的第四块
+     内容），按用户拍板「整个平铺到下面」改用 space-between：首组贴左、
+     末组贴右、中组居中，整行铺满。两端同一份 CSS、同一个窗口配置，
+     不是 Windows 特有。 */
+  justify-content: space-between;
 }
 .control-group {
   display: flex;
