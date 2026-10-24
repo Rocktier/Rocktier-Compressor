@@ -43,6 +43,21 @@
   --dot-size: 20px;
   --shadow: rgba(0, 0, 0, 0.4);
   --page-shadow: 0 2px 24px rgba(0, 0, 0, 0.60);
+  /* ── Elevation 四档（2026-10-24 UI 规范 v2.2 §2.3，findings D-71）──────
+     来源：小红书《圆角与阴影，让UI更有层次》——「阴影宁淡勿重」，黑色浓度
+     6%~12%，三层叠加（贴边细影 + 中间过渡 + 远处柔光）比一层重阴影自然。
+     档位：Flat（平面，层次靠边框/底色）/ Raised（静息卡）/ Floating（浮层）
+     / Overlay（模态，配遮罩）。
+     深色档四档全为 none —— 黑阴影压在纯黑底上不可见；深色的层级表达改用
+     --elev-border（1px 浅边框，与玻璃拟态卡的半透边框同源）。
+     阴影不是信息通道（规范 §9）：选中/激活/错误仍须有第二通道。 */
+  --elev-flat: none;
+  --elev-raised: none;
+  --elev-floating: none;
+  --elev-overlay: none;
+  --elev-border: rgba(255, 255, 255, 0.10);
+  /* 按下微缩（规范 §2.3 规则 4）：像被按下去，而非「亮一下」 */
+  --press-scale: 0.98;
   --scrollbar: rgba(255, 255, 255, 0.10);
   --scrollbar-hover: rgba(255, 255, 255, 0.20);
   --selection: rgba(255, 255, 255, 0.15);
@@ -196,6 +211,16 @@
   --dot-size: 20px;
   --shadow: rgba(0, 0, 0, 0.08);
   --page-shadow: 0 2px 20px rgba(0, 0, 0, 0.16);
+  /* Elevation 四档（规范 v2.2 §2.3）：浅色档三层叠加阴影，浓度 ≤12% */
+  --elev-flat: none;
+  --elev-raised: 0 1px 2px rgba(0, 0, 0, 0.04), 0 4px 12px rgba(0, 0, 0, 0.05);
+  --elev-floating: 0 1px 2px rgba(0, 0, 0, 0.04), 0 4px 12px rgba(0, 0, 0, 0.06),
+    0 12px 32px rgba(0, 0, 0, 0.08);
+  --elev-overlay: 0 1px 2px rgba(0, 0, 0, 0.06), 0 8px 24px rgba(0, 0, 0, 0.10),
+    0 24px 64px rgba(0, 0, 0, 0.12);
+  /* 浅色档浮层/模态的层级边框（比常规 --border 重一档，给对话框定义） */
+  --elev-border: rgba(0, 0, 0, 0.10);
+  --press-scale: 0.98;
   --scrollbar: rgba(0, 0, 0, 0.15);
   --scrollbar-hover: rgba(0, 0, 0, 0.25);
   --selection: rgba(0, 0, 0, 0.12);

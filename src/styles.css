@@ -34,6 +34,14 @@
   --surface-2: #f5f5f5;
 }
 
+/* ── Elevation 档位图（UI 规范 v2.2 §2.3，findings D-71；2026-10-24 首个试点）─
+   L0 Flat    标题栏 / 控制区 / 状态栏 / dropzone / chip —— 层次靠边框与底色阶
+   L1 Raised  .file-row（静息卡）、.dropzone.dragover（拖放悬停「浮起」）
+   L2 Floating 本产品暂无下拉 / Popover（令牌已随母版同步，用时直接取）
+   L3 Overlay .license-dialog / .update-dialog（模态 + 遮罩）
+   深色档四档阴影均为 none（黑阴影压在纯黑底上不可见），层级改由
+   --elev-border 的 1px 浅边框表达；浅色档是三层叠加淡阴影（浓度 ≤12%）。 */
+
 * {
   margin: 0;
   padding: 0;
@@ -166,7 +174,7 @@ body {
   justify-content: center;
   gap: 12px;
   cursor: pointer;
-  transition: border-color 0.2s;
+  transition: border-color 0.2s, box-shadow var(--dur-state) var(--ease);
 }
 .dropzone:hover {
   border-color: var(--accent);
@@ -180,6 +188,9 @@ body {
 .dropzone.dragover {
   border-color: var(--accent);
   background: var(--surface-2);
+  /* 拖放悬停 = 「浮起」：L1 Raised（规范 v2.2 §2.3，同屏档位 ≤2 的用法：
+     悬停态与静息态只差一档，不叠加） */
+  box-shadow: var(--elev-raised);
 }
 .dropzone-icon {
   /* 现为内联 SVG（非文字字符），尺寸由 SVG 的 width/height 属性控制 */
@@ -219,6 +230,10 @@ body {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 8px;
+  /* L1 Raised（规范 v2.2 §2.3）：浅色档三层淡阴影，让白底上的白卡分出层次；
+     深色档 --elev-raised 为 none，层级仍由 --surface 与 --bg 的亮度差承担。
+     选中/失败等状态不依赖阴影表达（第二通道是描边与文字色）。 */
+  box-shadow: var(--elev-raised);
 }
 .file-meta {
   display: flex;
@@ -367,10 +382,16 @@ body {
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
+  /* 按下微缩（规范 v2.2 §2.3 规则 4）：像被按下去，而非「亮一下」。
+     transition 同时覆盖 hover 的 filter，否则按下时亮度变化会跳变。 */
+  transition: transform var(--dur-fast) var(--ease), filter var(--dur-fast) var(--ease);
 }
 .primary:hover:not(:disabled) {
   background: var(--accent);
   filter: brightness(1.1);
+}
+.primary:active:not(:disabled) {
+  transform: scale(var(--press-scale));
 }
 .primary:disabled {
   opacity: 0.4;
@@ -385,10 +406,16 @@ body {
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
+  /* 按下微缩同 .primary（规范 v2.2 §2.3 规则 4） */
+  transition: transform var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease),
+    color var(--dur-fast) var(--ease);
 }
 .secondary:hover {
   border-color: var(--accent);
   color: var(--text);
+}
+.secondary:active {
+  transform: scale(var(--press-scale));
 }
 .profile-desc {
   font-size: 11px;
@@ -424,9 +451,15 @@ body {
   max-height: min(80vh, 560px);
   overflow-y: auto;
   background: var(--surface);
-  border: 1px solid var(--border);
+  /* L3 Overlay（规范 v2.2 §2.3）：层级边框 + 最重档阴影，配 overlay 遮罩。
+     修正一处无效声明（findings D-72）：此前写的是
+     box-shadow: 0 16px 48px var(--page-shadow, rgba(0,0,0,.5)) ——
+     --page-shadow 本身是完整阴影值（0 2px 24px …），当色值传进去会合成出
+     6 个长度的无效 box-shadow，整个声明被浏览器丢弃：两个对话框实际一直
+     是零阴影，模态与页面之间没有任何分离（深色档尤其明显）。 */
+  border: 1px solid var(--elev-border);
   border-radius: var(--radius);
-  box-shadow: 0 16px 48px var(--page-shadow, rgba(0, 0, 0, 0.5));
+  box-shadow: var(--elev-overlay);
   padding: 16px 18px;
   font-size: 13px;
   color: var(--text);
@@ -561,9 +594,11 @@ body {
   max-height: min(80vh, 560px);
   overflow-y: auto;
   background: var(--surface);
-  border: 1px solid var(--border);
+  /* L3 Overlay（规范 v2.2 §2.3）：同 .license-dialog，无效声明修正见该处
+     注释（findings D-72）。 */
+  border: 1px solid var(--elev-border);
   border-radius: var(--radius);
-  box-shadow: 0 16px 48px var(--page-shadow, rgba(0, 0, 0, 0.5));
+  box-shadow: var(--elev-overlay);
   padding: 16px 18px;
   font-size: 13px;
   color: var(--text);
