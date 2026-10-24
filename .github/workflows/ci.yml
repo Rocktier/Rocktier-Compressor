@@ -32,6 +32,15 @@ jobs:
         run: npm ci
       - name: Type check & build
         run: npm run build
+      - name: Go engine tests
+        # 压缩引擎的回归测试（D-73：媒体不得反向变大、PNG 去 alpha 必须像素
+        # 一致、端到端必须产出 output）。此前 CI 只编译引擎、从不跑它的单测，
+        # 引擎逻辑改了没有任何自动化关口 —— 补上这一道。
+        run: |
+          cd compress-engine
+          go vet ./...
+          go test ./...
+          cd ..
       - name: Build compress-engine binaries
         # tauri_build::build() (build.rs) hard-fails when a bundle.resources
         # path is missing — clippy needs the engine binaries to exist first.

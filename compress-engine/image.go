@@ -8,8 +8,6 @@ import (
 	"image/jpeg"
 	"image/png"
 	"os"
-	"path/filepath"
-	"strings"
 
 	"golang.org/x/image/draw"
 	"golang.org/x/image/tiff"
@@ -220,22 +218,41 @@ func compressImageToTarget(input, output, profile, quality string, target int64)
 // down to the profile's long-edge cap. Returns the original bytes untouched
 // when the entry is not a media image, decoding fails, or the re-encode is
 // not smaller — media substitution must never corrupt or grow the document.
-func shrinkMediaData(data []byte, name, profile, quality string) []byte {
+//
+// Two distinct levers live here (2026-10-24 findings D-73):
+//
+//  1. **PNG 去 alpha（视觉无损）** —— 办公文档里的 PNG 常带一条恒为 255 的
+//     alpha 通道（colortype 6）。整幅图不透明时，把 RGBA 重编码成 RGB 是
+//     逐像素等价的（实测 rgbDiffs=0 / alphaDiffs=0），却省掉 1/4 的原始像素
+//     数据，实测单图 -33~34%。这一条 **不涉及任何降采样**，因此对 default /
+//     print 档同样适用 —— 它不损画质，只丢掉一个恒定通道。
+//
+//  2. **降采样（有损）** —— 只在 profile 给了长边上限时才做（web / screen /
+//     maximum）。default / print 档上限为 0，保持原尺寸。
+func shrinkMediaData(data []byte, profile, quality string) []byte {
 	limit := maxImageEdge(profile)
-	if limit == 0 {
-		return data // default/print profiles preserve embedded media
-	}
-	var format string
-	switch strings.ToLower(filepath.Ext(name)) {
-	case ".jpg", ".jpeg":
-		format = "jpeg"
-	case ".png":
-		format = "png"
-	case ".tiff", ".tif":
-		format = "tiff"
-	default:
+
+	// 按**魔数**判定真实格式，而不是扩展名 —— Office 允许扩展名与实际格式
+	// 不符（实测：xl/media/image4.png 的内容其实是 JPEG）。按扩展名分派会
+	// 把 JPEG 当 PNG 解（失败，安全但错失收益），或把 PNG 当 JPEG 解。
+	// 魔数不认识的（.emf/.wmf 矢量图等）一律原样保留。
+	format := sniffImageFormat(data)
+	if format == "" {
 		return data
 	}
+
+	// PNG：先去 alpha（无损，所有档位都做），再按需降采样（有损，仅有上限档）。
+	if format == "png" {
+		stripped := stripPNGAlpha(data)
+		if len(stripped) < len(data) {
+			data = stripped
+		}
+	}
+
+	if limit == 0 {
+		return data // default/print profiles preserve embedded media dimensions
+	}
+
 	img, _, err := image.Decode(bytes.NewReader(data))
 	if err != nil {
 		return data
@@ -245,6 +262,71 @@ func shrinkMediaData(data []byte, name, profile, quality string) []byte {
 		return data
 	}
 	return out
+}
+
+// sniffImageFormat detects the real image format from the leading magic
+// bytes, returning "png" / "jpeg" / "tiff" or "" when unrecognised.
+// Office documents are known to store JPEG data under a .png name, so the
+// file extension cannot be trusted.
+func sniffImageFormat(data []byte) string {
+	switch {
+	case len(data) >= 8 && bytes.Equal(data[:8], []byte{0x89, 'P', 'N', 'G', 0x0D, 0x0A, 0x1A, 0x0A}):
+		return "png"
+	case len(data) >= 3 && data[0] == 0xFF && data[1] == 0xD8 && data[2] == 0xFF:
+		return "jpeg"
+	case len(data) >= 4 && (bytes.Equal(data[:4], []byte{'I', 'I', 0x2A, 0x00}) ||
+		bytes.Equal(data[:4], []byte{'M', 'M', 0x00, 0x2A})):
+		return "tiff"
+	}
+	return ""
+}
+
+// stripPNGAlpha re-encodes a PNG that carries a fully-opaque alpha channel
+// into an equivalent RGB PNG. When every pixel's alpha is 255 the conversion
+// is pixel-identical (verified by per-pixel comparison), so the image looks
+// exactly the same while carrying 25% less raw pixel data.
+//
+// Returns the original bytes unchanged when the PNG has no alpha channel,
+// has a partially transparent pixel, fails to decode, or the re-encode does
+// not actually come out smaller.
+func stripPNGAlpha(data []byte) []byte {
+	img, err := png.Decode(bytes.NewReader(data))
+	if err != nil {
+		return data
+	}
+	// Go's PNG decoder hands back *image.NRGBA / *image.RGBA for images that
+	// carry an alpha channel. Anything else (Gray, Paletted, NRGBA64…) has no
+	// alpha to strip.
+	switch img.(type) {
+	case *image.NRGBA, *image.RGBA:
+	default:
+		return data
+	}
+	if !isFullyOpaque(img) {
+		return data
+	}
+	var buf bytes.Buffer
+	enc := png.Encoder{CompressionLevel: png.BestCompression}
+	if err := enc.Encode(&buf, img); err != nil {
+		return data
+	}
+	if buf.Len() >= len(data) {
+		return data
+	}
+	return buf.Bytes()
+}
+
+// isFullyOpaque reports whether every pixel of img has alpha == 0xff.
+func isFullyOpaque(img image.Image) bool {
+	b := img.Bounds()
+	for y := b.Min.Y; y < b.Max.Y; y++ {
+		for x := b.Min.X; x < b.Max.X; x++ {
+			if _, _, _, a := img.At(x, y).RGBA(); a != 0xffff {
+				return false
+			}
+		}
+	}
+	return true
 }
 
 // downsample scales the image so its long edge fits limit (never upscales).

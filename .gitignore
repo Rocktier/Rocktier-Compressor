@@ -1,5 +1,6 @@
 # Dependencies
 node_modules/
+compress-engine/compress-engine
 compress-engine/compress-engine-windows.exe
 compress-engine/compress-engine-macos
 compress-engine/compress-engine-linux
