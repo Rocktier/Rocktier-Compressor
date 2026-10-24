@@ -81,6 +81,15 @@ func cmdCompress(input, profile, quality string, targetBytes int64) CompressResu
 		Format:       format,
 	}
 
+	// 用户目录零 tmp 垃圾的最后一块（2026-10-24 用户要求「TMP 文件不要
+	// 保存、不要生成」）：正常路径下 tmp 成功即 rename、失败即删除、回退
+	// 随 output 一起删（见 xlsx/pptx/docx 与下方回退段），唯独上次进程被
+	// 强杀/断电会遗留一个孤儿。tmp 命名是确定性的（OutputPath + ".tmp"），
+	// 只可能是引擎自己的半成品——压缩前扫掉，让每次运行自愈。理论上不排除
+	// 用户真有个同名 .tmp 文件，但那是他自己建的引擎产物名，概率可忽略；
+	// 相比之下留着垃圾是必然被看见的。
+	_ = os.Remove(result.OutputPath + ".tmp")
+
 	switch format {
 	case "pdf":
 		result = compressPDF(input, profile, quality, result)

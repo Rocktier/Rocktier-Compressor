@@ -346,6 +346,9 @@ export default function App() {
     let orig = 0;
     let comp = 0;
     let skipped = 0;
+    // 实际产出了压缩文件的个数（「已是最优」计 ok 但无 outputPath，
+    // 不算 produced）——决定要不要在完成语里提示「原文件还在」。
+    let produced = 0;
     for (let i = 0; i < pending.length; i++) {
       if (cancelRef.current) {
         skipped = pending.length - i;
@@ -368,6 +371,7 @@ export default function App() {
         if (r.error) fail++;
         else {
           ok++;
+          if (r.outputPath) produced++;
           orig += r.originalSize;
           comp += r.compressedSize;
         }
@@ -397,6 +401,17 @@ export default function App() {
       msg += t(
         `，共节省 ${fmtBytes(orig - comp)}（省 ${(100 - (comp / orig) * 100).toFixed(0)}%）`,
         ` · saved ${fmtBytes(orig - comp)} (${(100 - (comp / orig) * 100).toFixed(0)}% off)`,
+      );
+    }
+    // 2026-10-24 用户要求：压缩从不覆盖原文件（输出是旁边新生成的
+    // *_compressed 文件），完成后必须明示「原文件还在，可手动删除」——
+    // 否则用户面对一原一压两个文件不知道该留哪个，甚至以为原文件被
+    // 替换掉了。仅在确实产出了压缩文件时提示：全部「已是最优」时没有
+    // 新文件可对照，劝人删原文件会是坏建议。
+    if (produced > 0) {
+      msg += t(
+        "。原文件仍保留在原位置，如不需要可手动删除",
+        ". Originals are left in place; delete them manually if you no longer need them",
       );
     }
     setStatus(msg);
