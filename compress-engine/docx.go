@@ -16,6 +16,9 @@ func compressDocx(input, profile, quality string, result CompressResult) Compres
 	tmpOut := result.OutputPath + ".tmp"
 
 	if err := optimizeZip(input, tmpOut, profile, quality); err != nil {
+		// 失败也要清掉半成品 tmp：optimizeZip 里 os.Create 已建文件，
+		// 中途出错不清理会留 "_compressed.docx.tmp" 孤儿（与 xlsx/pptx 同款）。
+		os.Remove(tmpOut)
 		result.Error = fmt.Sprintf("DOCX compression failed: %v", err)
 		return result
 	}

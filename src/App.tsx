@@ -241,6 +241,12 @@ export default function App() {
   };
 
   const addPaths = async (paths: string[]) => {
+    // 2026-10-24 用户报障：拖入 .xls「无反应」。旧逻辑对不支持的文件静默
+    // 忽略（不进列表、无提示），用户完全看不出发生了什么。改为收集被跳过的
+    // 路径，最后给一条明确的状态栏提示：跳过了什么、支持哪些格式、旧版 .xls
+    // 该怎么办（另存为 .xlsx）——「不要静默丢失用户的拖放」的完整版是
+    // 既收下能收的，也说清楚没收的。
+    const skipped: string[] = [];
     for (const p of paths) {
       if (isSupported(p)) {
         addFile(p);
@@ -248,14 +254,30 @@ export default function App() {
       }
       // No matching extension — it may be a dropped folder: walk it instead
       // of silently dropping it (first principles: never lose a user's drop).
+      let added = 0;
       try {
         const list = await invoke<string[]>("list_files", { dir: p });
         for (const f of list) {
-          if (isSupported(f)) addFile(f);
+          if (isSupported(f)) {
+            addFile(f);
+            added++;
+          }
         }
       } catch {
-        /* neither a supported file nor a readable folder — ignore */
+        /* neither a supported file nor a readable folder */
       }
+      if (added === 0) skipped.push(p);
+    }
+    if (skipped.length > 0) {
+      const shown = skipped.slice(0, 3).map(basename).join(t("、", ", "));
+      const more = skipped.length > 3 ? t(`等共 ${skipped.length} 个`, `…and ${skipped.length} in total`) : "";
+      const hasXls = skipped.some((p) => p.toLowerCase().endsWith(".xls"));
+      setStatus(
+        t(
+          `已跳过 ${skipped.length} 个不支持的文件：${shown}${more}。支持 PDF / Word / Excel(.xlsx) / PowerPoint / 图片${hasXls ? "；.xls 是旧版格式，请先在 Excel 或 WPS 中另存为 .xlsx" : ""}`,
+          `Skipped ${skipped.length} unsupported file${skipped.length === 1 ? "" : "s"}: ${shown}${more}. Supported: PDF / Word / Excel (.xlsx) / PowerPoint / images${hasXls ? ". Legacy .xls must be saved as .xlsx first" : ""}`,
+        ),
+      );
     }
   };
 

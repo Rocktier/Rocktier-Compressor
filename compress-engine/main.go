@@ -29,6 +29,10 @@ type Profile struct {
 }
 
 // detectFormat returns the compression category for a given file path.
+// ".xls" is deliberately NOT folded into "xlsx": legacy .xls is an OLE2 binary
+// compound document, not a ZIP of OOXML parts — the whole xlsx/docx/pptx
+// pipeline (zip.OpenReader …) cannot open it. It gets its own category so the
+// user gets a targeted "save as .xlsx" message instead of "unsupported format".
 func detectFormat(path string) string {
 	ext := strings.ToLower(filepath.Ext(path))
 	switch ext {
@@ -38,6 +42,8 @@ func detectFormat(path string) string {
 		return "docx"
 	case ".xlsx", ".xlsm", ".xltx":
 		return "xlsx"
+	case ".xls", ".xlt":
+		return "xls-legacy"
 	case ".pptx", ".pptm", ".potx":
 		return "pptx"
 	case ".jpg", ".jpeg":
@@ -94,12 +100,26 @@ func cmdCompress(input, profile, quality string, targetBytes int64) CompressResu
 		} else {
 			result = compressImage(input, profile, quality, result)
 		}
+	case "xls-legacy":
+		// Legacy binary .xls: not a ZIP, so the OOXML re-packaging pipeline
+		// cannot open it. Say so plainly and tell the user the one-step fix —
+		// the generic "unsupported format" message left them with no action
+		// (2026-10-24 user report: dropping an .xls did nothing at all).
+		result.Error = "legacy .xls format is not supported — open the file in Excel or WPS and save it as .xlsx, then compress again"
 	default:
 		result.Error = fmt.Sprintf("unsupported format: %s", format)
 	}
 
 	if targetBytes > 0 && format != "jpeg" && format != "png" && format != "tiff" && result.Error == "" {
 		result.Note = "目标大小暂仅支持图片 / Target size applies to images only"
+	}
+
+	// 失败路径也要清掉可能已创建的半成品输出（pdfcpu / image re-encode 中途
+	// 出错时 output 文件可能已存在），否则用户目录里留一个打不开的残缺文件。
+	// 注：unsupported 类的 format 从未创建 output，remove 不存在文件无害。
+	if result.Error != "" {
+		_ = os.Remove(result.OutputPath)
+		return result
 	}
 
 	// 输出文件 stat 失败说明结果根本没落盘（磁盘满/杀软拦截等），必须按失败
