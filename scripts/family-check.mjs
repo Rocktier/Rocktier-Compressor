@@ -16,6 +16,7 @@
  */
 
 import { readFileSync, existsSync, readdirSync, statSync } from "node:fs";
+import { createHash } from "node:crypto";
 import { join, resolve, basename, dirname } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
@@ -196,6 +197,54 @@ async function runChecks(id, product, dir) {
     }
   }
 
+  /* 1b. tokens-byte-identity：产品 tokens.css 必须与 L0 母版**字节级一致**（md5）
+   *
+   * 2026-10-25 审计 D-78 债务项：PDF / Journal / Pic2Webp 三款滞留 486 行旧版
+   * （缺 Elevation 四档），check 1 的归一化比较（剥注释 + 压空白）当时没跑出来 ——
+   * 它对「注释/空白的漂移」天然失明，手改注释也能溜过去。母版头铁律是
+   * 「构建期拷贝，各产品不得手改」：md5 一致是唯一能同时证明「没手改 + 没漏同步」
+   * 的判据。漂移时的修法永远是整文件覆盖回母版，不是就地补差异。 */
+  if (prodTokens) {
+    const md5 = (p) => createHash("md5").update(readFileSync(p)).digest("hex");
+    const hp = md5(prodTokens), hc = md5(CANONICAL_TOKENS);
+    add(id, "tokens-byte-identity", hp === hc ? "PASS" : "FAIL",
+      hp === hc
+        ? `md5 ${hp.slice(0, 8)} 与母版一致（字节级）`
+        : `md5 不一致：产品 ${hp.slice(0, 8)} ≠ 母版 ${hc.slice(0, 8)} —— 用母版整文件覆盖产品副本，禁止手改`);
+  }
+
+  /* 1c. csp-ipc-connect-src：tauri.conf.json 的 CSP 必须在 connect-src 放行 IPC
+   *
+   * Tauri v2 的 IPC 请求走 http://ipc.localhost（外加 ipc: scheme）。2026-10-25
+   * 审计 D-78 P0：多款收紧 CSP 时漏了 connect-src 的 IPC 放行，license/激活查询
+   * 被**自家 CSP 静默拦掉**（console 只有 connect-src 违规，界面只显示「未激活」，
+   * 用户以为没买）。判据：csp 缺省 → PASS（无 CSP 不会拦 IPC）；有 csp →
+   * connect-src 指令必须同时含 `ipc:` 与 `http://ipc.localhost`。
+   * 本检查只读 app.security.csp（Tauri v2 层级）。 */
+  {
+    const confPath = join(dir, "src-tauri", "tauri.conf.json");
+    if (existsSync(confPath)) {
+      try {
+        const conf = JSON.parse(readFileSync(confPath, "utf8"));
+        const csp = conf?.app?.security?.csp;
+        if (!csp) {
+          add(id, "csp-ipc-connect-src", "PASS", "未自定义 CSP（不会拦 IPC）");
+        } else {
+          const connect = String(csp)
+            .split(";")
+            .map((d) => d.trim())
+            .find((d) => d.toLowerCase().startsWith("connect-src"));
+          const ok = !!connect && /\bipc:/.test(connect) && /\bhttp:\/\/ipc\.localhost/.test(connect);
+          add(id, "csp-ipc-connect-src", ok ? "PASS" : "FAIL",
+            ok ? "connect-src 放行 ipc: + http://ipc.localhost"
+               : `connect-src 缺 IPC 放行（现值: ${(connect || "无 connect-src 指令").slice(0, 90)}）—— Tauri v2 IPC 需要 ipc: 与 http://ipc.localhost`);
+        }
+      } catch (e) {
+        add(id, "csp-ipc-connect-src", "FAIL", `tauri.conf.json 解析失败: ${String(e).slice(0, 120)}`);
+      }
+    }
+  }
+
   /* 2. light-theme-token-parity：[data-theme="light"] 令牌集必须与 :root 完全一致 */
   if (prodTokens) {
     const css = stripComments(read(prodTokens));
@@ -278,6 +327,86 @@ async function runChecks(id, product, dir) {
     }
     add(id, "icon-btn-single-source", hits.length ? "FAIL" : "PASS",
       hits.length ? `${hits.length} 处 .icon-btn 复刻定义（快照外不许有第二份）: ${hits.slice(0, 4).join("; ")}` : "原语单一真源（仅 tokens.css 快照）");
+  }
+
+  /* 2c. small-icon-button-scan：btn 命名的小尺寸控件必须配命中区扩展
+   *
+   * 2026-10-25 审计 D-78：Write 11 个 16×16 图标按钮命中区不足，逐一手修的
+   * sanctioned 手法 = 视觉保持小尺寸 + ::after/::before 扩出 ≥20px 命中区
+   * （家族 .icon-btn 40×40 同款）。本规则拦「新写的小按钮不带扩展」，让同类
+   * 问题在闸门层断根，而不是等下一轮人工审计。
+   *
+   * 判据（对 tokens.css 快照外的 CSS + index.html 内联 <style>）：
+   *   命中 = 选择器含 btn/button（icon-button 家族命名）× 声明块显式
+   *   width/height（非 min-）≤16px × 无豁免。
+   *   豁免 ①：选择器引用家族原语（.icon-btn / .badge-license —— 自带命中区）；
+   *   豁免 ②：同文件存在同基选择器的 ::after/::before 且声明 ≥20px（扩展在）。
+   *   豁免 ③：::after/::before 块自身（它们就是扩展本体）。
+   *   豁免 ④：复合选择器最终元素是内容元素（svg/span/i 等）——那是按钮内部
+   *   尺寸不是控件自身（CAD `.btn svg` 误报后补）。 */
+  {
+    const blankComments2 = (css) => css.replace(/\/\*[\s\S]*?\*\//g, (m) => m.replace(/[^\n]/g, " "));
+    const ruleRe2 = /([^{}]+)\{([^{}]*)\}/g;
+    const declDim = (body, prop) => {
+      const m = body.match(new RegExp(`(?:^|;)\\s*${prop}\\s*:\\s*(\\d+)px`));
+      return m ? Number(m[1]) : null;
+    };
+    const pseudoBase = (sel) =>
+      sel.replace(/::?(?:before|after|hover|focus-visible|focus|active|disabled|checked)\b[^,]*/gi, "").trim();
+    /* 豁免④依据：选择器最终元素若是图形/内容元素（svg 图标、字号 i、span 等），
+     * 该规则描述的是按钮内部内容的尺寸而非按钮自身 —— CAD `.btn svg{width:15px}`
+     * 实测误报来源。闸门只看交互控件自身的盒尺寸。 */
+    const lastEl = (c) => c.split(/[\s>+~]+/).pop() || "";
+    const CONTENT_EL_RE =
+      /^(?:svg|path|img|canvas|video|source|rect|circle|line|polyline|polygon|use|g|i|span|b|em|strong|small|code|label)$/i;
+    const hits2 = [];
+    const scan2 = (text, label) => {
+      // 先收集命中区扩展：::after/::before 规则里声明了 ≥20px 的宽或高
+      const hitAreas = new Set();
+      for (const m of text.matchAll(ruleRe2)) {
+        const sel = m[1].replace(/\s+/g, " ").trim();
+        if (!/::(before|after)\s*(,|$)/.test(sel)) continue;
+        const w = declDim(m[2], "width"), h = declDim(m[2], "height");
+        if ((w !== null && w >= 20) || (h !== null && h >= 20)) hitAreas.add(pseudoBase(sel));
+      }
+      for (const m of text.matchAll(ruleRe2)) {
+        const sel = m[1].replace(/\s+/g, " ").trim();
+        if (/::(before|after)/.test(sel)) continue; // 豁免③：扩展本体
+        for (const compound of sel.split(",")) {
+          const c = compound.trim();
+          if (!/\b(?:btn|button)/i.test(c)) continue;          // 只管 btn 命名
+          if (/\.icon-btn|badge-license/.test(c)) continue;    // 豁免①：家族原语
+          if (CONTENT_EL_RE.test(lastEl(c))) continue;         // 豁免④：内容元素非控件
+          const w = declDim(m[2], "width"), h = declDim(m[2], "height");
+          for (const [prop, v] of [["width", w], ["height", h]]) {
+            if (v === null || v > 16) continue;
+            if (hitAreas.has(pseudoBase(c))) continue;         // 豁免②：扩展在
+            hits2.push(`${label}:${text.slice(0, m.index).split("\n").length} ${c} ${prop}:${v}px ≤16 且无 ::after/::before 命中区扩展`);
+          }
+        }
+      }
+    };
+    let hits2All = [];
+    const cssFiles2 = walkFe([".css"]).filter((p) => basename(p) !== "tokens.css");
+    const htmlPaths2 = [join(dir, "index.html"), ...feDirs.map((d) => join(d, "index.html"))].filter(existsSync);
+    const htmlStyleBlocks2 = (html) => [...html.matchAll(/<style[^>]*>([\s\S]*?)<\/style>/gi)].map((m) => m[1]);
+    for (const p of cssFiles2) scan2(blankComments2(read(p)), basename(p));
+    for (const p of htmlPaths2) {
+      const html = read(p);
+      htmlStyleBlocks2(html).forEach((b, bi) => {
+        const startLine = html.slice(0, html.indexOf(b)).split("\n").length;
+        const before = hits2All.length;
+        scan2(blankComments2(b), `index.html<style#${bi + 1}>`);
+        for (let i = before; i < hits2All.length; i++) {
+          hits2All[i] = hits2All[i].replace(/^([^:]+):(\d+)/, (_s, lab, n) => `${lab}:${startLine + Number(n) - 1}`);
+        }
+      });
+    }
+    hits2All.push(...hits2);
+    add(id, "small-icon-button-scan", hits2All.length ? "FAIL" : "PASS",
+      hits2All.length
+        ? `${hits2All.length} 个 btn 类控件显式 ≤16px 且无命中区扩展: ${hits2All.slice(0, 4).join("; ")}`
+        : "btn 类控件小尺寸均带命中区扩展或走家族原语");
   }
 
   /* 3. i18n-key-reconciliation：en ↔ zh 键双向对账
