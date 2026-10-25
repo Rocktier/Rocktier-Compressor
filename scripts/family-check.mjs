@@ -631,6 +631,60 @@ async function runChecks(id, product, dir) {
       ? [...new Set(firstFrameIssues)].slice(0, 4).join("；")
       : `首帧内联脚本的存储键与运行时一致（扫 ${feDirs.length} 处 index.html）`);
 
+  /* 4c. frontend-entry-integrity：界面入口必须完整。
+   *
+   * 为什么要有这条：2026-10-21 家族跑了一轮「把『检查更新』入口收进菜单」的
+   * 改动，同一款模板在两个仓各落了一份 —— pic2webp 的 f5297b5（v1.9.14）与
+   * OCR 的 a28330c（v0.2.9）。两份都**顺手把整个 body 连同全部脚本入口删掉
+   * 了**，而提交标题只说改了个入口。后果不是报错，而是「应用能开窗、页面全白」：
+   *
+   *   - pic2webp：vite 构建照样成功（产物只剩 index.html + 字体 + CSS，
+   *     一个 JS 都没有），CI 全绿，连发 v1.9.14 / v1.9.15 两版才被用户发现；
+   *   - OCR：前端不走打包（frontendDist 直接指向 ui/），误删直接生效，
+   *     v0.2.9 / v0.2.10 的 macOS 与 Windows 包都是空壳。
+   *
+   * 之所以一路绿灯，是因为闸门此前对 index.html 只查 CSS 与首帧存储键，
+   * **从没有检查过「界面结构还在不在」**。这条补的就是这个洞。
+   *
+   * 判据（先剥掉 HTML 注释，免得注释里的字面量干扰计数）：
+   *   ① body 开闭标签成对出现
+   *   ② 至少有一个带 src 的 script —— 应用总得有入口
+   *   ③ 每个 src 指向的本地文件真实存在（挡住「引用了不存在的入口」）
+   */
+  const entryIssues = [];
+  const entryHtmlPaths = [join(dir, "index.html"), ...feDirs.map((d) => join(d, "index.html"))]
+    .filter((p) => existsSync(p));
+  {
+    for (const p of entryHtmlPaths) {
+      const html = read(p).replace(/<!--[\s\S]*?-->/g, "");
+      const bodyOpen = (html.match(/<body[\s>]/gi) || []).length;
+      const bodyClose = (html.match(/<\/body\s*>/gi) || []).length;
+      if (bodyOpen === 0) {
+        entryIssues.push(`${basename(p)}: 没有 body 标签 —— 界面结构整段缺失`);
+      } else if (bodyOpen !== bodyClose) {
+        entryIssues.push(`${basename(p)}: body 开闭不成对（${bodyOpen}/${bodyClose}）`);
+      }
+      const srcs = [...html.matchAll(/<script[^>]*\bsrc\s*=\s*["']([^"']+)["']/gi)].map((m) => m[1]);
+      if (srcs.length === 0) {
+        entryIssues.push(`${basename(p)}: 没有任何外部 script 入口 —— 页面没有可执行入口`);
+      }
+      for (const s of srcs) {
+        if (/^(https?:)?\/\//i.test(s) || s.startsWith("data:")) continue; // 外链 / 内联，不归本仓管
+        const rel = s.replace(/^\/+/, "");
+        // 入口路径可能是相对前端根（/app.js，vite root 在 src/）也可能是相对仓库根
+        // （/src/main.tsx，vite root 在仓库根）—— 两种都试，猜错就当不存在。
+        const cands = [join(dirname(p), rel), join(dir, rel), ...feDirs.map((d) => join(d, rel))];
+        if (!cands.some((c) => existsSync(c))) {
+          entryIssues.push(`${basename(p)}: script 入口 ${s} 在仓内找不到对应文件`);
+        }
+      }
+    }
+  }
+  add(id, "frontend-entry-integrity", entryIssues.length ? "FAIL" : "PASS",
+    entryIssues.length
+      ? [...new Set(entryIssues)].slice(0, 4).join("；")
+      : `界面入口完整（body 成对 + script 入口存在，扫 ${entryHtmlPaths.length} 处 index.html）`);
+
   /* 5. storage-key-namespace：存储键必须 rocktier. 开头
    *
    * 这里有两条互补的通路，因为**同一个键有两种写法**：
