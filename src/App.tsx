@@ -503,7 +503,9 @@ export default function App() {
       <header className="titlebar">
         <div className="titlebar-drag-region" data-tauri-drag-region>
           <span className="brand-dot" />
-          <span className="title-text">Rocktier Compressor</span>
+          {/* 页面主标题：产品名即 h1 —— 工具壳没有文档概念，标题序列从产品名开始
+              （2026-10-25 审计 D-78：Compressor 整屏 0 个标题） */}
+          <h1 className="title-text">Rocktier Compressor</h1>
         </div>
         <div className="titlebar-right">
           {/* 家族唯一主题按钮：.icon-btn（28×28 + 40×40 命中区），三态 auto→light→dark。
@@ -604,6 +606,8 @@ export default function App() {
                 </div>
               </div>
             ))}
+            {/* 大片空白区的自述：这片区域仍接受拖放（D-78：空预览区无文案） */}
+            <div className="list-hint">{t("还可继续拖入文件", "You can also drop more files here")}</div>
           </div>
         </main>
       )}

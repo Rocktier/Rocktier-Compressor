@@ -509,3 +509,71 @@ button.icon-btn:active:not(:disabled) {
   );
   border: 1px solid var(--text-tertiary);
 }
+
+/* ─────────────────────────────────────────────────────────────────────────
+ * .badge-license —— 家族统一的许可/试用徽标原语（2026-10-25 审计 D-78）
+ *
+ * 审计发现同一枚徽标在 9 款里出现 6 种颜色（--red/--danger/--warn/#c0392b/灰）
+ * × 6 种尺寸（91×17 至 37×18），且全部低于 WCAG 2.5.8 的 24×24 最小命中区。
+ *
+ * 语义裁定：徽标只在许可**不处于正常态**（试用中/过期/未激活）时出现，
+ * 它是一枚"需要行动"的告示，统一走 --danger —— 浅档 #b8342a = 5.02:1、
+ * 暗档 #ff4a3d = 5.53:1，两档均过 AA。不再保留 warn/中性变体：
+ * 一个组件一种样子，变体面越大漂移越快。
+ *
+ * 按钮兼容：大部分产品把它渲染成 <button>（点击进入许可面板），
+ * 少数渲染成 <span>。这里给全 button 态（hover/focus-visible/disabled），
+ * <span> 用法自动忽略不可用的伪类，不受影响。
+ * 每款产品的替换方式：删掉各自的 .license-chip/.badge-license 本地定义，
+ * 保留类名，让样式唯一来源于本文件。
+ * ───────────────────────────────────────────────────────────────────────── */
+.badge-license {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  box-sizing: border-box;
+  /* 24×24 = WCAG 2.5.8 AA 最小命中区。此前 6 种实现全部不达标。 */
+  min-width: 24px;
+  min-height: 24px;
+  padding: 2px 10px;
+  border: 1px solid var(--danger);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--danger);
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  cursor: pointer;
+  user-select: none;
+}
+
+.badge-license:hover {
+  background: var(--bg-card-hover);
+}
+
+.badge-license:focus-visible {
+  outline: 2px solid var(--accent-glow);
+  outline-offset: 1px;
+}
+
+.badge-license:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+
+/* 显隐必须继续可用 hidden 属性切换：本原语的 display:inline-flex 是作者样式，
+   不加这条会盖过 UA 的 [hidden]{display:none}，徽标将永远显示。 */
+.badge-license[hidden] {
+  display: none;
+}
+
+/* 徽标旁常配一枚小图标（锁/警告），继承徽标色，10px 视觉尺寸。 */
+.badge-license svg {
+  width: 10px;
+  height: 10px;
+  margin-right: 4px;
+  flex: none;
+}
