@@ -1096,6 +1096,13 @@ if (selfMode) {
 } else {
   for (const p of products) {
     if (only && p.id !== only) continue;
+    /* 已退场产品（products[].retired = true；当前只有 Sign，仓 2026-10-29 已删）：
+       目录缺席是预期状态，不是故障。记 NA 而不是静默跳过 —— 跳过会让汇总里
+       凭空少一款且不留痕迹，NA 至少每次输出里都露面。 */
+    if (p.retired) {
+      add(p.id, "repo-present", "NA", `已退场（${p.retiredAt || "日期见 family.json"}），不参与闸门`);
+      continue;
+    }
     await runChecks(p.id, p, join(familyRoot, LOCAL_DIRS[p.id] || p.id));
   }
 }
