@@ -498,6 +498,17 @@ export default function App() {
   const pendingCount = files.filter((f) => f.status !== "done").length;
   const selProfile = profiles.find((p) => p.name === profile);
 
+  // 质量档只对会重编码图片的输入有效（图片 + Office 内嵌图），PDF 走 pdfcpu
+  // 的 optimize，v0.16 没有质量参数；目标大小只有图片分支会读（pdf.go:19-23、
+  // main.go:103-111）。全是 PDF 时把这两个旋钮藏起来，别让用户以为它们有用。
+  const exts = files.map((f) => f.name.slice(f.name.lastIndexOf(".")).toLowerCase());
+  const hasReencodable = exts.some((e) =>
+    [".jpg", ".jpeg", ".png", ".tif", ".tiff", ".docx", ".docm", ".xlsx", ".xlsm", ".pptx", ".pptm"].includes(e),
+  );
+  const hasImage = exts.some((e) => [".jpg", ".jpeg", ".png", ".tif", ".tiff"].includes(e));
+  const hideQuality = files.length > 0 && !hasReencodable;
+  const hideTarget = files.length > 0 && !hasImage;
+
   return (
     <div className="app">
       <header className="titlebar">
@@ -632,38 +643,42 @@ export default function App() {
             </div>
           ) : null}
         </div>
-        <div className="control-group">
-          <div className="control-label">{t("质量", "Quality")}</div>
-          <div className="chip-grid">
-            {(["low", "medium", "high"] as const).map((q) => (
-              <button
-                key={q}
-                className={"chip" + (quality === q ? " active" : "")}
-                disabled={target > 0}
-                onClick={() => setQuality(q)}
-              >
-                {q === "low" ? t("更小", "Smaller") : q === "medium" ? t("均衡", "Balanced") : t("更佳", "Better")}
-              </button>
-            ))}
+        {hideQuality ? null : (
+          <div className="control-group">
+            <div className="control-label">{t("质量", "Quality")}</div>
+            <div className="chip-grid">
+              {(["low", "medium", "high"] as const).map((q) => (
+                <button
+                  key={q}
+                  className={"chip" + (quality === q ? " active" : "")}
+                  disabled={!hideTarget && target > 0}
+                  onClick={() => setQuality(q)}
+                >
+                  {q === "low" ? t("更小", "Smaller") : q === "medium" ? t("均衡", "Balanced") : t("更佳", "Better")}
+                </button>
+              ))}
+            </div>
+            {target > 0 ? (
+              <div className="profile-desc">{t("目标大小模式下自动调整质量", "Quality is auto-tuned to hit the target")}</div>
+            ) : null}
           </div>
-          {target > 0 ? (
-            <div className="profile-desc">{t("目标大小模式下自动调整质量", "Quality is auto-tuned to hit the target")}</div>
-          ) : null}
-        </div>
-        <div className="control-group">
-          <div className="control-label">{t("目标大小", "Target size")}</div>
-          <div className="chip-grid">
-            {TARGETS.map((tg) => (
-              <button
-                key={tg.value}
-                className={"chip" + (target === tg.value ? " active" : "")}
-                onClick={() => setTarget(tg.value)}
-              >
-                {tg.value === 0 ? t("关闭", "Off") : tg.label}
-              </button>
-            ))}
+        )}
+        {hideTarget ? null : (
+          <div className="control-group">
+            <div className="control-label">{t("目标大小", "Target size")}</div>
+            <div className="chip-grid">
+              {TARGETS.map((tg) => (
+                <button
+                  key={tg.value}
+                  className={"chip" + (target === tg.value ? " active" : "")}
+                  onClick={() => setTarget(tg.value)}
+                >
+                  {tg.value === 0 ? t("关闭", "Off") : tg.label}
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
+        )}
       </section>
 
       <footer className="statusbar">
