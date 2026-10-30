@@ -38,6 +38,12 @@ const TARGETS: { value: number; label: string }[] = [
   { value: 10_000_000, label: "10 MB" },
   { value: 25_000_000, label: "25 MB" },
 ];
+
+// 图片是唯一会重编码、也是唯一读目标大小的输入；质量档对 PDF（pdfcpu v0.16 无
+// 质量参数）与 legacy .xls（走 unsupported 分支）无效，其余格式一律保留。
+const IMAGE_EXTS = new Set([".jpg", ".jpeg", ".png", ".tif", ".tiff"]);
+const QUALITY_IGNORED_EXTS = new Set([".pdf", ".xls", ".xlt"]);
+const extOf = (name: string) => name.slice(name.lastIndexOf(".")).toLowerCase();
 type FileItem = {
   path: string;
   name: string;
@@ -361,7 +367,8 @@ export default function App() {
           path: f.path,
           profile: profileRef.current,
           quality: qualityRef.current,
-          target_bytes: targetRef.current > 0 ? targetRef.current : undefined,
+          target_bytes:
+            IMAGE_EXTS.has(extOf(f.name)) && targetRef.current > 0 ? targetRef.current : undefined,
         });
         setFiles((prev) =>
           prev.map((x) =>
@@ -498,15 +505,9 @@ export default function App() {
   const pendingCount = files.filter((f) => f.status !== "done").length;
   const selProfile = profiles.find((p) => p.name === profile);
 
-  // 质量档只对会重编码图片的输入有效（图片 + Office 内嵌图），PDF 走 pdfcpu
-  // 的 optimize，v0.16 没有质量参数；目标大小只有图片分支会读（pdf.go:19-23、
-  // main.go:103-111）。全是 PDF 时把这两个旋钮藏起来，别让用户以为它们有用。
-  const exts = files.map((f) => f.name.slice(f.name.lastIndexOf(".")).toLowerCase());
-  const hasReencodable = exts.some((e) =>
-    [".jpg", ".jpeg", ".png", ".tif", ".tiff", ".docx", ".docm", ".xlsx", ".xlsm", ".pptx", ".pptm"].includes(e),
-  );
-  const hasImage = exts.some((e) => [".jpg", ".jpeg", ".png", ".tif", ".tiff"].includes(e));
-  const hideQuality = files.length > 0 && !hasReencodable;
+  // PDF 与 legacy .xls 不吃质量档；只有图片吃目标大小。
+  const hasImage = files.some((f) => IMAGE_EXTS.has(extOf(f.name)));
+  const hideQuality = files.length > 0 && files.every((f) => QUALITY_IGNORED_EXTS.has(extOf(f.name)));
   const hideTarget = files.length > 0 && !hasImage;
 
   return (
