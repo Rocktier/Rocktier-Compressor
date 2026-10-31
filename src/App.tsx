@@ -123,6 +123,8 @@ export default function App() {
   const [target, setTarget] = useState<number>(() => Number(localStorage.getItem("rocktier.target") || 0));
   const [files, setFiles] = useState<FileItem[]>([]);
   const [busy, setBusy] = useState(false);
+  /* 正在处理的那一行：红点只挂在它旁边（家族签名：点永不单独编码状态）。 */
+  const [currentPath, setCurrentPath] = useState<string | null>(null);
   const [status, setStatus] = useState("");
   const [dragOver, setDragOver] = useState(false);
   // 授权（家族 L6）：状态记账 + 对话框开关。null = 尚未取到（或浏览器 dev）。
@@ -287,13 +289,16 @@ export default function App() {
     }
   };
 
-  const removeFile = (path: string) =>
+  const removeFile = (path: string) => {
+    // 压缩进行中不摘行：行集合是循环外的快照，摘掉后引擎仍会写出该文件。
+    if (busyRef.current) return;
     setFiles((prev) => prev.filter((f) => f.path !== path));
+  };
 
   const openAdd = async () => {
     const sel = await open({
       multiple: true,
-      filters: [{ name: "Documents & Images", extensions: ["pdf", "docx", "xlsx", "pptx", "jpg", "jpeg", "png", "tif", "tiff"] }],
+      filters: [{ name: t("文档与图片", "Documents & Images"), extensions: ["pdf", "docx", "docm", "xlsx", "xlsm", "pptx", "pptm", "jpg", "jpeg", "png", "tif", "tiff"] }],
     });
     if (sel) addPaths(Array.isArray(sel) ? sel : [sel]);
   };
@@ -319,6 +324,8 @@ export default function App() {
       setStatus(t("没有待压缩文件", "No files to compress"));
       return;
     }
+    // 进度位在冲突确认之前就占住：双击不能启动第二轮回写同一输出文件。
+    busyRef.current = true;
     // 引擎用 os.Create 直接写输出（base_compressed.ext），会静默覆盖已有文件。
     // 开始前先问一次：列出冲突输出，用户确认才继续（P0 覆盖确认）。
     try {
@@ -339,12 +346,14 @@ export default function App() {
             `These output files already exist and will be overwritten:\n\n${shown}${more}\n\nOverwrite?`,
           ),
         );
-        if (!ok) return;
+        if (!ok) {
+          busyRef.current = false;
+          return;
+        }
       }
     } catch {
       /* conflict check is advisory — never block compression on it */
     }
-    busyRef.current = true;
     cancelRef.current = false;
     setBusy(true);
     let ok = 0;
@@ -361,6 +370,7 @@ export default function App() {
         break;
       }
       const f = pending[i];
+      setCurrentPath(f.path);
       setStatus(t(`压缩中 (${i + 1}/${pending.length})：`, `Compressing (${i + 1}/${pending.length}): `) + f.name);
       try {
         const r = await invoke<CompressResult>("compress_file", {
@@ -395,9 +405,11 @@ export default function App() {
         // 防事件丢失时该文件只留一个裸失败标记。
         if (isLicenseExpiredError(e)) openLicense();
       }
+      setCurrentPath(null);
     }
     let msg: string;
-    if (skipped > 0) {
+    // 取消发生在最后一个文件上时 skipped 为 0，也要如实说「已取消」。
+    if (cancelRef.current || skipped > 0) {
       msg = t(`已取消（完成 ${ok}，跳过 ${skipped}）`, `Cancelled (${ok} done, ${skipped} skipped)`);
     } else if (fail === 0) {
       msg = t(`完成：${ok} 个文件`, `Done: ${ok} file${ok === 1 ? "" : "s"}`);
@@ -510,6 +522,40 @@ export default function App() {
   const hideQuality = files.length > 0 && files.every((f) => QUALITY_IGNORED_EXTS.has(extOf(f.name)));
   const hideTarget = files.length > 0 && !hasImage;
 
+  const profileLabel = (p: Profile) =>
+    PROFILE_I18N[lang]?.[p.name]?.[0] ?? p.label;
+  const profileDesc = (p: Profile) =>
+    PROFILE_I18N[lang]?.[p.name]?.[1] ?? p.description;
+  const qualityLabel = (q: "low" | "medium" | "high") =>
+    q === "low" ? t("更小", "Smaller") : q === "medium" ? t("均衡", "Balanced") : t("更佳", "Better");
+  const activeProfile = selProfile ?? profiles[0];
+  const targetLabel = target > 0 ? `${target / 1_000_000} MB` : t("关闭", "Off");
+
+  // 右栏汇总与状态栏口径同源：都从行数据算，不另记一份。
+  const doneCount = files.filter((f) => f.status === "done").length;
+  // 正在重压的失败文件此刻显示「正在处理」，不再计入失败，避免一行两个状态。
+  const errorCount = files.filter((f) => f.status === "error" && f.path !== currentPath).length;
+  const queuedCount = files.filter((f) => f.status === "pending" && f.path !== currentPath).length;
+  const savedBytes = files.reduce((sum, f) => {
+    const r = f.result;
+    if (f.status !== "done" || !r?.outputPath) return sum;
+    return sum + Math.max(0, r.originalSize - r.compressedSize);
+  }, 0);
+  const countParts: string[] = [];
+  if (doneCount) countParts.push(t(`${doneCount} 个完成`, `${doneCount} done`));
+  if (currentPath) countParts.push(t("1 个处理中", "1 processing"));
+  if (queuedCount > 0) countParts.push(t(`${queuedCount} 个排队`, `${queuedCount} queued`));
+  if (errorCount) countParts.push(t(`${errorCount} 个失败`, `${errorCount} failed`));
+  const summaryCap =
+    doneCount > 0 && savedBytes > 0
+      ? t("已节省 · ", "Saved · ") + countParts.join(t("，", ", "))
+      : countParts.length
+        ? countParts.join(t("，", ", "))
+        : t("还没有可比较的结果", "Nothing to compare yet");
+  const settingsSummary =
+    `${activeProfile ? profileLabel(activeProfile) : t("默认", "Default")} · ${qualityLabel(quality)}` +
+    (!hideTarget && target > 0 ? ` · ${t("目标", "Target")} ${targetLabel}` : "");
+
   return (
     <div className="app">
       <header className="titlebar">
@@ -518,8 +564,15 @@ export default function App() {
           {/* 页面主标题：产品名即 h1 —— 工具壳没有文档概念，标题序列从产品名开始
               （2026-10-25 审计 D-78：Compressor 整屏 0 个标题） */}
           <h1 className="title-text">Rocktier Compressor</h1>
+          <span className="title-suffix">{t("文件压缩", "File compression")}</span>
         </div>
         <div className="titlebar-right">
+          <button className="btn-add" onClick={openAdd}>
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" aria-hidden="true">
+              <path d="M12 5v14M5 12h14" />
+            </svg>
+            {t("添加文件", "Add files")}
+          </button>
           {/* 家族唯一主题按钮：.icon-btn（28×28 + 40×40 命中区），三态 auto→light→dark。
               Compressor 此前没有任何主题入口，这一枚是新增的。 */}
           <button
@@ -550,7 +603,7 @@ export default function App() {
               className="lang-btn"
               value={lang}
               onChange={(e) => setLang(e.target.value as Lang)}
-              aria-label="Language"
+              aria-label={t("语言", "Language")}
             >
               {LOCALES.map((l) => (
                 <option key={l.code} value={l.code}>{l.endonym}</option>
@@ -560,139 +613,204 @@ export default function App() {
         </div>
       </header>
 
-      {files.length === 0 ? (
-        <main className="content">
-          <button
-            type="button"
-            className={"dropzone" + (dragOver ? " dragover" : "")}
-            onClick={openAdd}
+      <div className="body">
+        <main className="main">
+          <div
+            className={"drop" + (dragOver ? " dragover" : "")}
+            onClick={() => { if (!busy) openAdd(); }}
+            role="button"
+            tabIndex={busy ? -1 : 0}
+            onKeyDown={(e) => {
+              if ((e.key === "Enter" || e.key === " ") && !busy) { e.preventDefault(); openAdd(); }
+            }}
+            aria-label={t("把文件拖进来，或点击选择文件", "Drop files here, or click to browse")}
           >
-            <DropzoneGlyph />
-            <span className="dropzone-title">{t("拖放文件到这里开始压缩", "Drop files here to start compressing")}</span>
-            <span className="dropzone-subtitle">
-              {t("支持 PDF, Word, Excel, PowerPoint, 图片", "Supports PDF, Word, Excel, PowerPoint, Images")}
-            </span>
-          </button>
-        </main>
-      ) : (
-        <main className="content with-list">
-          <div className="file-list">
-            {files.map((f) => (
-              <div className="file-row" key={f.path}>
-                <div className="file-meta">
-                  <span className="file-name">{f.name}</span>
-                  {f.status === "done" && f.result ? (
-                    f.result.outputPath ? (
-                      <span className="file-info">
-                        {fmtBytes(f.result.originalSize)} → {fmtBytes(f.result.compressedSize)}{" "}
-                        <span className="ratio">({(f.result.ratio * 100).toFixed(0)}%)</span>
-                        {f.result.note ? <span className="note"> · {f.result.note}</span> : null}
+            <span className="drop-glyph"><DropzoneGlyph /></span>
+            <div className="drop-copy">
+              <strong>{t("把文件拖进来", "Drop files here")}</strong>
+              <span>{t("PDF、Word、Excel、PPT、JPG、PNG、TIFF", "PDF, Word, Excel, PPT, JPG, PNG, TIFF")}</span>
+            </div>
+            <span className="drop-spacer" />
+            <button className="primary" disabled={pendingCount === 0 || busy} onClick={compress}>
+              {busy ? t("压缩中…", "Compressing…") : t("开始压缩", "Compress")}
+            </button>
+          </div>
+
+          <div className="table-head" aria-hidden="true">
+            <span>{t("文件", "File")}</span>
+            <span>{t("压缩前后", "Before / after")}</span>
+            <span className="right">{t("状态", "Status")}</span>
+          </div>
+
+          {files.length > 0 ? (
+            <ul className="rows">
+            {files.map((f) => {
+              const r = f.result;
+              const ext = extOf(f.name).replace(".", "").toUpperCase();
+              const isProcessing = currentPath === f.path;
+              const origSize = r?.originalSize ?? f.size ?? 0;
+              const pct = r && r.originalSize > 0
+                ? Math.max(0, Math.min(100, Math.round((r.compressedSize / r.originalSize) * 100)))
+                : 0;
+              return (
+                <li className="row" key={f.path}>
+                  <div className="row-name">
+                    <span className="ext">{ext}</span>
+                    <span className="file">{f.name}</span>
+                    <span className="dim">{origSize ? fmtBytes(origSize) : ""}</span>
+                  </div>
+                  <div className="meter">
+                    {isProcessing ? (
+                      <>
+                        <span className="bar"><i className="working" /></span>
+                        <span className="size muted">{t("处理中", "Working")}</span>
+                      </>
+                    ) : f.status === "done" && r?.outputPath ? (
+                      <>
+                        <span className="bar"><i style={{ width: `${pct}%` }} /></span>
+                        <span className="size"><b>{fmtBytes(r.compressedSize)}</b></span>
+                        <span className="savepct">-{100 - pct}%</span>
+                      </>
+                    ) : f.status === "done" ? (
+                      <span className="size muted">{t("已是最优", "Already optimized")}</span>
+                    ) : f.status === "error" ? (
+                      <span className="size warn">{t("未压缩", "Not compressed")}</span>
+                    ) : (
+                      <>
+                        <span className="bar"><i style={{ width: "0%" }} /></span>
+                        <span className="size muted">{t("排队中", "Queued")}</span>
+                      </>
+                    )}
+                  </div>
+                  <div className={"state" + (f.status === "done" ? " done" : f.status === "error" ? " error" : "")}>
+                    {isProcessing ? (
+                      <>
+                        <span className="dot-live" role="img" aria-label={t("正在处理", "Processing")} />
+                        <span>{t("正在处理", "Processing")}</span>
+                      </>
+                    ) : f.status === "done" ? (
+                      <>
+                        <span className="done-mark" aria-hidden="true">✓</span>
+                        <span>{t("已压缩", "Compressed")}</span>
+                      </>
+                    ) : f.status === "error" ? (
+                      <span className="state-msg" title={f.error || t("失败", "Failed")}>
+                        {f.error || t("失败", "Failed")}
                       </span>
                     ) : (
-                      <span className="file-info muted">
-                        {t("已是最优，无需压缩", "Already optimized")}
-                        {f.result.originalSize ? ` · ${fmtBytes(f.result.originalSize)}` : ""}
-                      </span>
-                    )
-                  ) : f.status === "error" ? (
-                    <span className="file-info err">{f.error || t("失败", "Failed")}</span>
-                  ) : (
-                    <span className="file-info muted">
-                      {t("待压缩", "Pending")}
-                      {f.size ? ` · ${fmtBytes(f.size)}` : ""}
-                    </span>
-                  )}
-                </div>
-                <div className="row-actions">
-                  {f.status === "done" && f.result?.outputPath ? (
-                    <button
-                      className="row-x"
-                      title={revealLabel}
-                      aria-label={revealLabel}
-                      onClick={() => invoke("reveal_path", { path: f.result!.outputPath })}
-                    >
-                      ↗
-                    </button>
-                  ) : null}
-                  <button className="row-x" onClick={() => removeFile(f.path)} aria-label="Remove">×</button>
-                </div>
-              </div>
-            ))}
-            {/* 大片空白区的自述：这片区域仍接受拖放（D-78：空预览区无文案） */}
-            <div className="list-hint">{t("还可继续拖入文件", "You can also drop more files here")}</div>
-          </div>
-        </main>
-      )}
+                      <span>{t("排队中", "Queued")}</span>
+                    )}
+                    <div className="row-actions">
+                      {f.status === "done" && f.result?.outputPath ? (
+                        <button
+                          className="row-x"
+                          title={revealLabel}
+                          aria-label={revealLabel}
+                          onClick={() => invoke("reveal_path", { path: f.result!.outputPath })}
+                        >
+                          ↗
+                        </button>
+                      ) : null}
+                      <button className="row-x" onClick={() => removeFile(f.path)} aria-label={t("移除", "Remove")}>
+                        ×
+                      </button>
+                    </div>
+                  </div>
+                </li>
+              );
+            })}
+            </ul>
+          ) : null}
 
-      <section className="controls">
-        <div className="control-group">
-          <div className="control-label">{t("压缩方案", "Profile")}</div>
-          <div className="chip-grid">
-            {(profiles.length ? profiles : [{ name: "default", label: "Default", description: "", quality: "medium" }]).map((p) => (
-              <button
-                key={p.name}
-                className={"chip" + (profile === p.name ? " active" : "")}
-                onClick={() => setProfile(p.name)}
-              >
-                {PROFILE_I18N[p.name]?.[lang]?.[0] ?? PROFILE_I18N[p.name]?.en?.[0] ?? p.label}
-              </button>
-            ))}
-          </div>
-          {selProfile ? (
-            <div className="profile-desc">
-              {PROFILE_I18N[selProfile.name]?.[lang]?.[1] ?? PROFILE_I18N[selProfile.name]?.en?.[1] ?? selProfile.description}
+          {files.length === 0 ? (
+            <div className="empty">
+              <p>{t("还没有文件", "No files yet")}</p>
+              <p className="empty-sub">{t("拖进来，或点右上角「添加文件」。", "Drop them here, or use Add files.")}</p>
             </div>
           ) : null}
-        </div>
-        {hideQuality ? null : (
-          <div className="control-group">
-            <div className="control-label">{t("质量", "Quality")}</div>
-            <div className="chip-grid">
-              {(["low", "medium", "high"] as const).map((q) => (
+        </main>
+
+        <aside className="rail" aria-label={t("压缩设置", "Compression settings")}>
+          <section>
+            <h2>{t("压缩方案", "Profile")}</h2>
+            <div className="chips">
+              {(profiles.length ? profiles : [{ name: "default", label: "Default", description: "", quality: "medium" }]).map((p) => (
                 <button
-                  key={q}
-                  className={"chip" + (quality === q ? " active" : "")}
-                  disabled={!hideTarget && target > 0}
-                  onClick={() => setQuality(q)}
+                  key={p.name}
+                  className="chip"
+                  aria-pressed={profile === p.name}
+                  onClick={() => setProfile(p.name)}
                 >
-                  {q === "low" ? t("更小", "Smaller") : q === "medium" ? t("均衡", "Balanced") : t("更佳", "Better")}
+                  {profileLabel(p)}
                 </button>
               ))}
             </div>
-            {target > 0 ? (
-              <div className="profile-desc">{t("目标大小模式下自动调整质量", "Quality is auto-tuned to hit the target")}</div>
+            {activeProfile && profileDesc(activeProfile) ? (
+              <p className="note">{profileDesc(activeProfile)}</p>
             ) : null}
-          </div>
-        )}
-        {hideTarget ? null : (
-          <div className="control-group">
-            <div className="control-label">{t("目标大小", "Target size")}</div>
-            <div className="chip-grid">
-              {TARGETS.map((tg) => (
-                <button
-                  key={tg.value}
-                  className={"chip" + (target === tg.value ? " active" : "")}
-                  onClick={() => setTarget(tg.value)}
-                >
-                  {tg.value === 0 ? t("关闭", "Off") : tg.label}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-      </section>
+          </section>
+
+          {hideQuality ? null : (
+            <section>
+              <h2>{t("质量", "Quality")}</h2>
+              <div className="seg" role="group" aria-label={t("质量", "Quality")}>
+                {(["low", "medium", "high"] as const).map((q) => (
+                  <button
+                    key={q}
+                    aria-pressed={quality === q}
+                    disabled={!hideTarget && target > 0}
+                    onClick={() => setQuality(q)}
+                  >
+                    {qualityLabel(q)}
+                  </button>
+                ))}
+              </div>
+              {!hideTarget && target > 0 ? (
+                <p className="note">{t("目标大小模式下自动调整质量", "Quality is auto-tuned to hit the target")}</p>
+              ) : null}
+            </section>
+          )}
+
+          {hideTarget ? null : (
+            <section>
+              <h2>{t("目标大小", "Target size")}</h2>
+              <div className="chips">
+                {TARGETS.map((tg) => (
+                  <button
+                    key={tg.value}
+                    className="chip"
+                    aria-pressed={target === tg.value}
+                    onClick={() => setTarget(tg.value)}
+                  >
+                    {tg.value === 0 ? t("关闭", "Off") : tg.label}
+                  </button>
+                ))}
+              </div>
+              <p className="note">{t("只对图片生效；列表里没有图片时这一段会自动收起。", "Applies to images only. Hides when the list has no images.")}</p>
+            </section>
+          )}
+
+          <div className="rule" />
+
+          <section className="summary" aria-live="polite">
+            <span className="big">{savedBytes > 0 ? fmtBytes(savedBytes) : "—"}</span>
+            <span className="cap">{summaryCap}</span>
+          </section>
+        </aside>
+      </div>
 
       <footer className="statusbar">
-        <span className="status-text">{status || t("就绪", "Ready")}</span>
         {busy ? (
-          <button className="secondary" onClick={() => { cancelRef.current = true; }}>
+          <span className="dot-live" role="img" aria-label={t("正在压缩", "Compressing")} />
+        ) : null}
+        <span className="status-text" role="status" aria-live="polite" title={status || t("就绪", "Ready")}>{status || t("就绪", "Ready")}</span>
+        <span className="spacer" />
+        {busy ? (
+          <button className="secondary" onClick={() => { cancelRef.current = true; setStatus(t("正在取消…", "Cancelling…")); }}>
             {t("取消", "Cancel")}
           </button>
-        ) : (
-          <button className="primary" disabled={pendingCount === 0} onClick={compress}>
-            {t("开始压缩", "Start Compress")}
-          </button>
-        )}
+        ) : null}
+        <span className="settings-summary">{settingsSummary}</span>
       </footer>
 
       {/* 许可与激活（家族 L6）。到期写操作被拦时由 Rust 发 license-expired

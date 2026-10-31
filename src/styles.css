@@ -68,7 +68,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  height: 48px;
+  height: 52px;
   /* titleBarStyle=Overlay：红绿灯悬浮在内容上，左侧必须让出灯位 */
   padding: 0 16px 0 76px;
   background: var(--surface);
@@ -80,6 +80,7 @@ body {
   display: flex;
   align-items: center;
   gap: 8px;
+  min-width: 0;
 }
 .brand-dot {
   width: 8px;
@@ -97,17 +98,50 @@ body {
 .title-text {
   font-weight: 600;
   font-size: 14px;
+  letter-spacing: -0.01em;
   margin: 0; /* span→h1 后吃掉 UA 的默认外边距，避免标题栏基线偏移 */
   /* 同上：让标题文字区域也能拖动窗口。取舍：标题栏文字不可选中——
      24ef701 恢复的可选中针对正文区（文件名/错误信息/状态栏），不受影响 */
   pointer-events: none;
+  white-space: nowrap;
 }
-/* 标题栏右侧：主题钮 + 语言钮。整块 no-drag，否则按钮点不动。 */
+.title-suffix {
+  font-size: 12px;
+  font-weight: 450;
+  color: var(--text-tertiary);
+  white-space: nowrap;
+  pointer-events: none;
+}
+/* 标题栏右侧：添加文件 + 主题钮 + 语言钮。整块 no-drag，否则按钮点不动。 */
 .titlebar-right {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   -webkit-app-region: no-drag;
+}
+.btn-add {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: 12px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background-color var(--dur-hover) var(--ease),
+    border-color var(--dur-hover) var(--ease);
+}
+.btn-add:hover {
+  background: var(--bg-card-hover);
+  border-color: var(--border-hover);
+}
+.btn-add:active {
+  transform: scale(var(--press-scale));
 }
 .lang-toggle {
   display: flex;
@@ -143,134 +177,256 @@ body {
   color: var(--red-ink);
 }
 
-/* ---------- Content ---------- */
-.content {
+/* ---------- Body ---------- */
+.body {
   flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 32px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 264px;
   min-height: 0;
 }
-.content.with-list {
-  align-items: stretch;
-  padding: 12px 16px;
-}
-.dropzone {
-  /* 现为真 <button>（键盘可达），需清掉 UA 默认样式 */
-  -webkit-appearance: none;
-  appearance: none;
-  background: transparent;
-  font: inherit;
-  color: inherit;
-  text-align: center;
-  width: 100%;
-  max-width: 480px;
-  aspect-ratio: 3 / 2;
-  border: 2px dashed var(--border);
-  border-radius: var(--radius);
+.main {
   display: flex;
   flex-direction: column;
+  gap: 10px;
+  padding: 16px 16px 0;
+  min-width: 0;
+  min-height: 0;
+}
+.drop {
+  display: flex;
   align-items: center;
-  justify-content: center;
   gap: 12px;
+  padding: 12px 14px;
+  border: 1px dashed var(--border-hover);
+  border-radius: 10px;
+  /* 浅色档 --surface 与 --bg 同为 #fff，染底全消失；降一阶用 surface-2。
+     浅色档虚线 --border 仅 1.19:1，够不到 3:1 的非文本对比底线。 */
+  background: var(--surface-2);
   cursor: pointer;
-  transition: border-color 0.2s, box-shadow var(--dur-state) var(--ease);
+  flex: none;
+  transition: border-color var(--dur-state) var(--ease),
+    background-color var(--dur-state) var(--ease);
 }
-.dropzone:hover {
-  border-color: var(--accent);
-}
-/* 键盘焦点必须可见（此前是 div，无从聚焦） */
-.dropzone:focus-visible {
+.drop:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
-/* 拖拽悬停反馈（tauri://drag-enter / drag-leave 切换） */
-.dropzone.dragover {
+.drop.dragover {
   border-color: var(--accent);
   background: var(--surface-2);
-  /* 拖放悬停 = 「浮起」：L1 Raised（规范 v2.2 §2.3，同屏档位 ≤2 的用法：
-     悬停态与静息态只差一档，不叠加） */
-  box-shadow: var(--elev-raised);
 }
-.dropzone-icon {
-  /* 现为内联 SVG（非文字字符），尺寸由 SVG 的 width/height 属性控制 */
-  width: 44px;
-  height: 44px;
-  display: block;
-  color: var(--text-muted);
-  opacity: 0.75;
-}
-.dropzone-title {
-  font-size: 16px;
-  font-weight: 600;
-}
-.dropzone-subtitle {
-  font-size: 13px;
-  color: var(--text-muted);
-}
-
-/* ---------- File list ---------- */
-.file-list {
-  flex: 1;
-  overflow-y: auto;
-  scrollbar-width: none; /* Firefox */
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-.file-list::-webkit-scrollbar {
-  display: none; /* Chrome/Safari */
-}
-.file-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 8px 12px;
-  background: var(--surface);
+.drop-glyph {
+  width: 34px;
+  height: 34px;
+  flex: none;
+  display: grid;
+  place-items: center;
   border: 1px solid var(--border);
   border-radius: 8px;
-  /* L1 Raised（规范 v2.2 §2.3）：浅色档三层淡阴影，让白底上的白卡分出层次；
-     深色档 --elev-raised 为 none，层级仍由 --surface 与 --bg 的亮度差承担。
-     选中/失败等状态不依赖阴影表达（第二通道是描边与文字色）。 */
-  box-shadow: var(--elev-raised);
+  background: var(--surface-2);
+  color: var(--text-muted);
 }
-.file-meta {
+.drop-glyph .dropzone-icon {
+  width: 18px;
+  height: 18px;
+  opacity: 1;
+}
+.drop-copy {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 1px;
   min-width: 0;
 }
-.file-name {
+.drop-copy strong {
   font-size: 13px;
-  font-weight: 500;
+  font-weight: 550;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.file-info {
-  font-size: 12px;
-  color: var(--text-muted);
+.drop-copy span {
+  font-size: 11.5px;
+  color: var(--text-tertiary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.drop-spacer {
+  flex: 1;
+}
+
+/* ---------- Table ---------- */
+.table-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 190px 168px;
+  gap: 14px;
+  padding: 0 10px 2px;
+  font-size: 11.5px;
+  color: var(--text-tertiary);
+  flex: none;
+}
+.table-head .right {
+  text-align: right;
+}
+.rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+.rows::-webkit-scrollbar {
+  display: none;
+}
+.row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 190px 168px;
+  gap: 14px;
+  align-items: center;
+  padding: 10px;
+  border-top: 1px solid var(--border);
+  border-radius: 8px;
+}
+.row:first-child {
+  border-top: 0;
+}
+.row:hover {
+  background: var(--bg-card-hover);
+}
+.row-name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.ext {
+  flex: none;
   font-family: var(--font-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.02em;
+  padding: 1px 5px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text-muted);
+  background: var(--surface);
 }
-.file-info.err {
-  color: var(--brand);
+.file {
+  min-width: 0;
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
-.file-info.muted {
-  /* 原为 opacity:0.6 —— 叠在已带 alpha 的 --text-muted 上二次衰减
-     (有效 alpha = .58 x .6 = .348 → 3.21:1)。要更弱直接用第三级文字令牌，
-     不要在带 alpha 的令牌上再叠 opacity。 */
+.dim {
+  flex: none;
+  font-size: 11px;
+  color: var(--text-tertiary);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.meter {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.bar {
+  position: relative;
+  flex: 1;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--border);
+  overflow: hidden;
+}
+.bar i {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: var(--success);
+  border-radius: 2px;
+}
+.bar i.working {
+  width: 30% !important;
+  background: var(--border-strong);
+  animation: barslide 1.2s var(--ease) infinite;
+}
+@keyframes barslide {
+  0% {
+    transform: translateX(-110%);
+  }
+  100% {
+    transform: translateX(360%);
+  }
+}
+.size {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.size b {
+  color: var(--text);
+  font-weight: 550;
+}
+.size.muted {
   color: var(--text-tertiary);
 }
-.file-info .ratio {
-  /* 浅色档下 #4ade80 在白底上对比度不足，用 --success 随主题切换 */
-  color: var(--success, #4ade80);
+.size.warn {
+  color: var(--danger);
+}
+.savepct {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 550;
+  color: var(--success);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+/* ---------- Row state ---------- */
+.state {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  min-width: 0;
+  font-size: 11.5px;
+  color: var(--text-muted);
+}
+.state.done {
+  color: var(--success);
+}
+.state.error {
+  color: var(--danger);
+}
+.state-msg {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.done-mark {
+  width: 14px;
+  height: 14px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--bg-card-hover);
+  color: var(--success);
+  font-size: 9px;
 }
 .row-actions {
   display: flex;
   align-items: center;
-  gap: 2px;
+  gap: 0;
+  opacity: 0;
+  transition: opacity var(--dur-hover) var(--ease);
+}
+.row:hover .row-actions,
+.row:focus-within .row-actions {
+  opacity: 1;
 }
 
 /* 键盘用户必须看得见焦点在哪（家族无障碍底线） */
@@ -285,10 +441,10 @@ body {
   background: transparent;
   border: none;
   color: var(--text-muted);
-  font-size: 18px;
+  font-size: 17px;
   line-height: 1;
   cursor: pointer;
-  padding: 0 4px;
+  padding: 0 3px;
   position: relative; /* 命中区扩展锚点 */
 }
 /* 家族命中区手法（.icon-btn 同款）：视觉不变，命中区扩到 24×24
@@ -306,94 +462,162 @@ body {
   color: var(--brand);
 }
 
-/* 文件列表的空态提示：行数少时列表下方是一大片空白，
-   首次使用者不知道这块区域是干什么的 —— 明示它仍是拖放目标（D-78） */
-.list-hint {
-  margin-top: auto;
-  padding: 16px;
+/* 空列表：drop 条已说明入口，这里只补一句，不重复按钮 */
+.empty {
+  margin: auto;
+  padding: 24px;
   text-align: center;
-  font-size: 12px;
-  color: var(--text-muted);
-  border: 1px dashed var(--border);
-  border-radius: var(--radius);
-  pointer-events: none;
-}
-
-/* ---------- Controls ---------- */
-.controls {
-  display: flex;
-  gap: 24px;
-  padding: 12px 16px;
-  border-top: 1px solid var(--border);
-  background: var(--surface);
-  /* 三组控制项平铺整行（2026-10-24 用户报障「下面所有的功能区整体偏左」
-     的最终形态）：此前缺 justify-content，恒 flex-start 贴左；改 center
-     只是把三组作为一个整体居中，第三组右侧仍空 200-300px（用户红框处）。
-     经确认该区域无预留用途（controls 内只有这三个组，无计划中的第四块
-     内容），按用户拍板「整个平铺到下面」改用 space-between：首组贴左、
-     末组贴右、中组居中，整行铺满。两端同一份 CSS、同一个窗口配置，
-     不是 Windows 特有。 */
-  justify-content: space-between;
-}
-.control-group {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 3px;
 }
-.control-label {
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+.empty p {
+  font-size: 13px;
   color: var(--text-muted);
 }
-.chip-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(96px, 1fr));
+.empty .empty-sub {
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+/* ---------- Settings rail ---------- */
+.rail {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 16px 14px;
+  border-left: 1px solid var(--border);
+  /* 浅色档 surface 与 bg 同白，右栏与主区靠底色阶区分（L0 规范） */
+  background: var(--surface-2);
+  overflow-y: auto;
+  scrollbar-width: none;
+  min-height: 0;
+}
+.rail::-webkit-scrollbar {
+  display: none;
+}
+.rail h2 {
+  margin: 0 0 8px;
+  font-size: 11.5px;
+  font-weight: 550;
+  color: var(--text-muted);
+}
+.chips {
+  display: flex;
+  flex-wrap: wrap;
   gap: 4px;
 }
 .chip {
-  background: var(--surface-2);
+  height: 28px;
+  padding: 0 10px;
   border: 1px solid var(--border);
-  color: var(--text);
-  padding: 6px 12px;
-  border-radius: 8px;
-  font-size: 13px;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-muted);
+  font-family: var(--font-sans);
+  font-size: 12px;
   cursor: pointer;
   white-space: nowrap;
+  transition: border-color var(--dur-hover) var(--ease),
+    color var(--dur-hover) var(--ease);
 }
 .chip:hover {
-  border-color: var(--text-muted);
+  border-color: var(--border-hover);
+  color: var(--text);
 }
-.chip.active {
+.chip[aria-pressed="true"] {
   /* 选中态：描边保持 --red（红点语言：状态/进行中，不做实心红块）。
      文字用 --red-ink —— 浅档 --red #e64537 对白底只有 3.98:1，13px 文字不过 AA。 */
-  background: transparent;
   border-color: var(--red);
   color: var(--red-ink);
+  font-weight: 550;
 }
-.chip:disabled {
+.seg {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--surface-2);
+}
+.seg button {
+  height: 26px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--text-muted);
+  font-family: var(--font-sans);
+  font-size: 12px;
+  cursor: pointer;
+}
+.seg button:hover:not(:disabled) {
+  color: var(--text);
+}
+.seg button[aria-pressed="true"] {
+  background: var(--accent);
+  color: var(--on-accent);
+  font-weight: 550;
+}
+.seg button:disabled {
   opacity: 0.45;
   cursor: not-allowed;
 }
-.file-info .note {
-  color: var(--text-muted);
+.note {
+  margin: 8px 0 0;
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--text-tertiary);
+}
+.rule {
+  height: 1px;
+  background: var(--border);
+}
+.summary {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: auto;
+}
+.summary .big {
+  font-family: var(--font-mono);
+  font-size: 22px;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+.summary .cap {
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: var(--text-tertiary);
 }
 
 /* ---------- Status bar / footer ---------- */
 .statusbar {
-  height: 56px;
-  padding: 0 16px;
+  height: 40px;
+  padding: 0 14px;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  background: var(--surface);
+  gap: 8px;
+  /* 与右栏同阶：浅色档下与主区分层 */
+  background: var(--surface-2);
   border-top: 1px solid var(--border);
   font-size: 12px;
   color: var(--text-muted);
+  flex: none;
 }
 .status-text {
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+.statusbar .spacer {
+  flex: 1;
+}
+.settings-summary {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-tertiary);
   white-space: nowrap;
 }
 .primary {
@@ -403,11 +627,14 @@ body {
   background: var(--accent);
   border: none;
   color: var(--on-accent);
-  padding: 8px 18px;
-  border-radius: 8px;
-  font-size: 13px;
+  height: 32px;
+  padding: 0 14px;
+  border-radius: 7px;
+  font-family: var(--font-sans);
+  font-size: 12px;
   font-weight: 600;
   cursor: pointer;
+  white-space: nowrap;
   /* 按下微缩（规范 v2.2 §2.3 规则 4）：像被按下去，而非「亮一下」。
      transition 同时覆盖 hover 的 filter，否则按下时亮度变化会跳变。 */
   transition: transform var(--dur-fast) var(--ease), filter var(--dur-fast) var(--ease);
@@ -427,11 +654,14 @@ body {
   background: transparent;
   border: 1px solid var(--border);
   color: var(--text);
-  padding: 8px 18px;
-  border-radius: 8px;
-  font-size: 13px;
+  height: 26px;
+  padding: 0 10px;
+  border-radius: 6px;
+  font-family: var(--font-sans);
+  font-size: 12px;
   font-weight: 600;
   cursor: pointer;
+  white-space: nowrap;
   /* 按下微缩同 .primary（规范 v2.2 §2.3 规则 4） */
   transition: transform var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease),
     color var(--dur-fast) var(--ease);
@@ -443,10 +673,20 @@ body {
 .secondary:active {
   transform: scale(var(--press-scale));
 }
-.profile-desc {
-  font-size: 11px;
-  color: var(--text-muted);
-  max-width: 220px;
+
+/* 窗口 minWidth 780：断点压到 720，保证允许尺寸内「压缩前」一列不消失 */
+@media (max-width: 720px) {
+  .body {
+    grid-template-columns: minmax(0, 1fr) 224px;
+  }
+  .table-head,
+  .row {
+    grid-template-columns: minmax(0, 1fr) 150px 126px;
+    gap: 10px;
+  }
+  .dim {
+    display: none;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
