@@ -615,22 +615,23 @@ export default function App() {
 
       <div className="body">
         <main className="main">
-          <div
-            className={"drop" + (dragOver ? " dragover" : "")}
-            onClick={() => { if (!busy) openAdd(); }}
-            role="button"
-            tabIndex={busy ? -1 : 0}
-            onKeyDown={(e) => {
-              if ((e.key === "Enter" || e.key === " ") && !busy) { e.preventDefault(); openAdd(); }
-            }}
-            aria-label={t("把文件拖进来，或点击选择文件", "Drop files here, or click to browse")}
-          >
-            <span className="drop-glyph"><DropzoneGlyph /></span>
-            <div className="drop-copy">
-              <strong>{t("把文件拖进来", "Drop files here")}</strong>
-              <span>{t("PDF、Word、Excel、PPT、JPG、PNG、TIFF", "PDF, Word, Excel, PPT, JPG, PNG, TIFF")}</span>
-            </div>
-            <span className="drop-spacer" />
+          {/* 拖放区与「开始压缩」是兄弟按钮，不嵌套：此前外层是 role="button"
+              并挂了 onClick=openAdd，里面的 primary 一点就冒泡去开文件框，
+              键盘 Enter/Space 也被外层的 preventDefault 吞掉。 */}
+          <div className={"drop" + (dragOver ? " dragover" : "")}>
+            <button
+              type="button"
+              className="drop-target"
+              onClick={() => { if (!busy) openAdd(); }}
+              disabled={busy}
+              aria-label={t("把文件拖进来，或点击选择文件", "Drop files here, or click to browse")}
+            >
+              <span className="drop-glyph"><DropzoneGlyph /></span>
+              <span className="drop-copy">
+                <strong>{t("把文件拖进来", "Drop files here")}</strong>
+                <span>{t("PDF、Word、Excel、PPT、JPG、PNG、TIFF", "PDF, Word, Excel, PPT, JPG, PNG, TIFF")}</span>
+              </span>
+            </button>
             <button className="primary" disabled={pendingCount === 0 || busy} onClick={compress}>
               {busy ? t("压缩中…", "Compressing…") : t("开始压缩", "Compress")}
             </button>
@@ -691,7 +692,9 @@ export default function App() {
                     ) : f.status === "done" ? (
                       <>
                         <span className="done-mark" aria-hidden="true">✓</span>
-                        <span>{t("已压缩", "Compressed")}</span>
+                        {/* 已是最优的文件没有 outputPath（引擎没写出新文件），
+                            和真正压小了的那批不能共用「已压缩」。 */}
+                        <span>{r?.outputPath ? t("已压缩", "Compressed") : t("已是最优", "Already optimized")}</span>
                       </>
                     ) : f.status === "error" ? (
                       <span className="state-msg" title={f.error || t("失败", "Failed")}>
@@ -805,8 +808,10 @@ export default function App() {
         ) : null}
         <span className="status-text" role="status" aria-live="polite" title={status || t("就绪", "Ready")}>{status || t("就绪", "Ready")}</span>
         <span className="spacer" />
+        {/* 取消只能在两个文件之间生效：正在跑的那个会做完。说「正在取消」
+            会让用户以为当前文件立刻中止，等几秒没动静就以为按钮坏了。 */}
         {busy ? (
-          <button className="secondary" onClick={() => { cancelRef.current = true; setStatus(t("正在取消…", "Cancelling…")); }}>
+          <button className="secondary" onClick={() => { cancelRef.current = true; setStatus(t("当前文件完成后停止…", "Will stop after the current file…")); }}>
             {t("取消", "Cancel")}
           </button>
         ) : null}

@@ -48,8 +48,14 @@ function normalize(s: string): string {
 export function localizeError(raw: string, isZh: boolean): string {
   if (!raw) return raw;
 
-  // 许可错误码走专用处理路径（对话框已分流），不该被当成普通错误改写。
-  if (raw === "LICENSE_EXPIRED" || raw === "LICENSE_WRONG_PRODUCT") return raw;
+  // 许可错误码是给程序看的机器码。激活对话框会同时弹出，但文件行里留一串
+  // 大写英文（"LICENSE_EXPIRED"）等于什么都没说，这里翻成人话。
+  if (raw === "LICENSE_EXPIRED") {
+    return isZh ? "许可已到期，激活后重试。" : "Your license has expired. Activate to continue.";
+  }
+  if (raw === "LICENSE_WRONG_PRODUCT") {
+    return isZh ? "这份许可属于其他产品。" : "This license belongs to a different product.";
+  }
 
   const pair = EXACT[raw] ?? NORMALIZED[normalize(raw)];
   // 未知文案 → 原样显示底层真实错误，不隐藏细节。

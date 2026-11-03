@@ -197,17 +197,38 @@ body {
   align-items: center;
   gap: 12px;
   padding: 12px 14px;
-  border: 1px dashed var(--border-hover);
+  border: 1px dashed var(--border-strong);
   border-radius: 10px;
   /* 浅色档 --surface 与 --bg 同为 #fff，染底全消失；降一阶用 surface-2。
-     浅色档虚线 --border 仅 1.19:1，够不到 3:1 的非文本对比底线。 */
+     虚线用 --border-strong（浅色档 rgba(0,0,0,.45)）：--border/--border-hover
+     在浅色档只有 1.2–1.4:1，够不到 3:1 的非文本对比底线。 */
   background: var(--surface-2);
-  cursor: pointer;
+  cursor: default;
   flex: none;
   transition: border-color var(--dur-state) var(--ease),
     background-color var(--dur-state) var(--ease);
 }
-.drop:focus-visible {
+/* 可点的只有左边这块（图标 + 文案），右边的「开始压缩」是兄弟按钮 ——
+   role="button" 里套 <button> 既非法规也会让点击冒泡去开文件框。 */
+.drop-target {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.drop-target:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+.drop-target:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
@@ -251,10 +272,6 @@ body {
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.drop-spacer {
-  flex: 1;
-}
-
 /* ---------- Table ---------- */
 .table-head {
   display: grid;
