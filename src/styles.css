@@ -476,7 +476,7 @@ body {
   transform: translate(-50%, -50%);
 }
 .row-x:hover {
-  color: var(--brand);
+  color: var(--danger);
 }
 
 /* 空列表：drop 条已说明入口，这里只补一句，不重复按钮 */
@@ -610,7 +610,7 @@ body {
 
 /* ---------- Status bar / footer ---------- */
 .statusbar {
-  height: 40px;
+  height: var(--statusbar-h);
   padding: 0 14px;
   display: flex;
   align-items: center;
@@ -813,7 +813,7 @@ body {
 .license-field input:focus { border-color: var(--brand); }
 
 .license-error {
-  color: var(--brand);
+  color: var(--danger);
   font-size: 12px;
 }
 
