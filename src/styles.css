@@ -950,3 +950,16 @@ body {
   color: var(--on-accent);
   font-weight: 600;
 }
+
+/* 覆盖输出文件属破坏性操作：确认按钮走 --danger（规范 v2 §7）。
+   只换颜色，不与主按钮抢视觉层级。 */
+.update-footer button.update-danger-btn {
+  color: var(--danger);
+  border-color: var(--danger);
+  background: transparent;
+  font-weight: 600;
+}
+
+/* 覆盖清单用 \n 分行列出前 5 个文件，必须保留换行。 */
+.confirm-message { white-space: pre-line; }
+

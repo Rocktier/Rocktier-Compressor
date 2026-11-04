@@ -5,6 +5,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { open } from "@tauri-apps/plugin-dialog";
 import { LicenseDialog } from "./components/LicenseDialog";
+import { ConfirmDialog } from "./components/ConfirmDialog";
 import { UpdateDialog } from "./components/UpdateDialog";
 import { isMacOS } from "./utils/platform";
 import { useTheme } from "./hooks/useTheme";
@@ -195,6 +196,26 @@ export default function App() {
   const [updateOpen, setUpdateOpen] = useState(false);
   const updateChecking = useRef(false);
 
+  /* 应用内确认框（规范 v2 §7：禁止 window.confirm）。Promise 化的 askConfirm
+     保留原先 `const ok = await …` 的调用形态，弹框视觉复用 UpdateDialog。 */
+  const [confirmReq, setConfirmReq] = useState<{
+    message: string;
+    confirmLabel: string;
+    danger: boolean;
+    resolve: (ok: boolean) => void;
+  } | null>(null);
+  const askConfirm = useCallback(
+    (message: string, confirmLabel: string, danger: boolean) =>
+      new Promise<boolean>((resolve) => setConfirmReq({ message, confirmLabel, danger, resolve })),
+    []
+  );
+  const settleConfirm = useCallback((ok: boolean) => {
+    setConfirmReq((req) => {
+      req?.resolve(ok);
+      return null;
+    });
+  }, []);
+
   /* 检查更新。**只有这里会触发联网检查** —— 右下角入口与帮助菜单共用。
      用 ref 而非 state 判重：连点两次不该发出两个请求。 */
   const runUpdateCheck = useCallback(async () => {
@@ -340,11 +361,13 @@ export default function App() {
         const more = conflicts.length > 5
           ? t(`\n…等共 ${conflicts.length} 个文件`, `\n…and ${conflicts.length} files in total`)
           : "";
-        const ok = window.confirm(
+        const ok = await askConfirm(
           t(
-            `以下输出文件已存在，继续将覆盖：\n\n${shown}${more}\n\n确定覆盖？`,
-            `These output files already exist and will be overwritten:\n\n${shown}${more}\n\nOverwrite?`,
+            `以下输出文件已存在，继续将覆盖：\n\n${shown}${more}`,
+            `These output files already exist and will be overwritten:\n\n${shown}${more}`
           ),
+          t("覆盖", "Overwrite"),
+          true
         );
         if (!ok) {
           busyRef.current = false;
@@ -485,10 +508,10 @@ export default function App() {
       un.push(await listen("tauri://drag-enter", () => setDragOver(true)));
       un.push(await listen("tauri://drag-leave", () => setDragOver(false)));
       un.push(
-        await listen("app-close-requested", () => {
+        await listen("app-close-requested", async () => {
           const proceed = () => invoke("force_close");
           if (busyRef.current) {
-            if (window.confirm(t("正在压缩，确定退出？", "Compression in progress. Quit anyway?"))) proceed();
+            if (await askConfirm(t("正在压缩，确定退出？", "Compression in progress. Quit anyway?"), t("退出", "Quit"), false)) proceed();
           } else {
             proceed();
           }
@@ -829,6 +852,16 @@ export default function App() {
           currentVersion={APP_VERSION}
           lang={lang}
           onClose={() => setUpdateOpen(false)}
+        />
+      )}
+      {confirmReq && (
+        <ConfirmDialog
+          message={confirmReq.message}
+          confirmLabel={confirmReq.confirmLabel}
+          lang={lang}
+          danger={confirmReq.danger}
+          onCancel={() => settleConfirm(false)}
+          onConfirm={() => settleConfirm(true)}
         />
       )}
       {licenseOpen && (
