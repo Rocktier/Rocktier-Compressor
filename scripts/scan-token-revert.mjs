@@ -9,7 +9,7 @@
 // 用法: node scan-token-revert.mjs <familyRoot>
 // 退出码 0 = 无回退；1 = 有回退
 
-import { readFileSync, readdirSync, statSync } from "node:fs";
+import { readFileSync, readdirSync, statSync, existsSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { join, relative } from "node:path";
 
@@ -20,12 +20,27 @@ const REPOS = {
   pdf: "Rocktier PDF",
   markdown: "Rocktier MD",
   write: "Rocktier Write",
-  pic2webp: join("Rocktier Pic2Webp", "pic2webp-main"),
+  pic2webp: "Rocktier Pic2Webp",
   "cad-viewer": "Rocktier CAD Viewer",
   ocr: "Rocktier OCR",
   journal: "Rocktier-Journal",
   compressor: "Rocktier-Compressor",
   sign: "Rocktier Sign",
+};
+
+/* 与 family-check 同款：兼容平铺 / 嵌套两种检出布局（见母版闸门注释）。
+   外层没有 .git 时下钻一层找带 .git 的子目录，返回相对家族根的路径。 */
+const resolveRepo = (rel) => {
+  const base = join(root, rel);
+  if (!existsSync(base) || existsSync(join(base, ".git"))) return rel;
+  try {
+    for (const e of readdirSync(base, { withFileTypes: true })) {
+      if (!e.isDirectory() || e.name.startsWith(".")) continue;
+      const child = join(rel, e.name);
+      if (existsSync(join(root, child, ".git"))) return child;
+    }
+  } catch { /* 目录不可读：退回原路径 */ }
+  return rel;
 };
 
 const stripComments = (s) => s.replace(/\/\*[\s\S]*?\*\//g, "");
@@ -160,7 +175,7 @@ let total = 0;
 const report = [];
 
 for (const [id, rel] of Object.entries(REPOS)) {
-  const dir = join(root, rel);
+  const dir = join(root, resolveRepo(rel));
   let files;
   let tracked = true;
   try {

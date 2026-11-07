@@ -111,12 +111,31 @@ const LOCAL_DIRS = {
   pdf: "Rocktier PDF",
   markdown: "Rocktier MD",
   write: "Rocktier Write",
-  pic2webp: "Rocktier Pic2Webp/pic2webp-main",
+  pic2webp: "Rocktier Pic2Webp",
   "cad-viewer": "Rocktier CAD Viewer",
   ocr: "Rocktier OCR",
   journal: "Rocktier-Journal",
   sign: "Rocktier Sign",
   compressor: "Rocktier-Compressor",
+};
+
+/* ---------- 产品目录解析：兼容「平铺检出」与「嵌套检出」 ----------
+   部分机器把 Pic2WebP 检出为 <dir>/.git，另一些多一层 <dir>/pic2webp-main/.git
+   （zip 解压 / clone 方式不同）。硬编码任一形态都会让另一台机器整款假红：
+   2026-11-08 实测母版写外层，本机 6 条判据全 FAIL，而产品文件逐项合规、
+   tokens.css md5 与母版全等。判据：外层有 .git 用外层，否则下钻一层找
+   带 .git 的子目录；找不到就退回外层，让闸门如实报缺文件，不静默吞缺陷。 */
+const resolveProductDir = (root, id) => {
+  const base = join(root, LOCAL_DIRS[id] || id);
+  if (!existsSync(base) || existsSync(join(base, ".git"))) return base;
+  try {
+    for (const e of readdirSync(base, { withFileTypes: true })) {
+      if (!e.isDirectory() || e.name.startsWith(".") || e.name === "node_modules") continue;
+      const candidate = join(base, e.name);
+      if (existsSync(join(candidate, ".git"))) return candidate;
+    }
+  } catch { /* 目录不可读：退回原路径 */ }
+  return base;
 };
 
 /* ---------- i18n 字典形态差异 ----------
@@ -1103,13 +1122,13 @@ if (selfMode) {
       add(p.id, "repo-present", "NA", `已退场（${p.retiredAt || "日期见 family.json"}），不参与闸门`);
       continue;
     }
-    await runChecks(p.id, p, join(familyRoot, LOCAL_DIRS[p.id] || p.id));
+    await runChecks(p.id, p, resolveProductDir(familyRoot, p.id));
   }
 }
 // 第 9 款 Compressor：契约若已收录则由上面的循环覆盖，仅在契约未列时补扫，避免重复计两遍
 const knownIds = new Set(products.map((p) => p.id));
 if (!knownIds.has("compressor") && LOCAL_DIRS.compressor && (!only || only === "compressor")) {
-  await runChecks("compressor", null, join(familyRoot, LOCAL_DIRS.compressor));
+  await runChecks("compressor", null, resolveProductDir(familyRoot, "compressor"));
 }
 
 /* ---------- 输出 ---------- */
