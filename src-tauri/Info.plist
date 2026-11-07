@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  App Store 提交所需的 Info.plist 增量（Tauri 会把它合并进自动生成的那份）。
+  依据与逐条理由见 docs/rocktier/macos-hig-checklist.md。
+-->
+<plist version="1.0">
+<dict>
+	<!-- 不使用非豁免加密：本地处理文件，无自有加密算法；联网仅标准 HTTPS 查更新，
+	     许可证 Ed25519 验签属「仅用于身份验证」。作用：ASC 不再逐 build 弹加密问卷。
+	     若将来引入自研加密，本键必须改为 true。 -->
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
+
+	<!-- App Store 必需项，需与 App Store Connect 的主类别一致。 -->
+	<key>LSApplicationCategoryType</key>
+	<string>public.app-category.utilities</string>
+</dict>
+</plist>
