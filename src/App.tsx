@@ -582,7 +582,10 @@ export default function App() {
   return (
     <div className="app">
       <header className="titlebar">
-        <div className="titlebar-drag-region" data-tauri-drag-region>
+        {/* deep：裸属性只有「直接点在这层 div 上」才算拖拽区，点在标题文字上无效；
+            deep 让子树整体可拖，button / select 等控件仍会阻断（Tauri 的 isDragRegion
+            先看 CLICKABLE_TAGS）。2026-11-14 Pic2WebP 同款改动。 */}
+        <div className="titlebar-drag-region" data-tauri-drag-region="deep">
           <span className="brand-dot" />
           {/* 页面主标题：产品名即 h1 —— 工具壳没有文档概念，标题序列从产品名开始
               （2026-10-25 审计 D-78：Compressor 整屏 0 个标题） */}
