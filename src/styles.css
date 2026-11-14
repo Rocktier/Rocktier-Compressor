@@ -112,12 +112,14 @@ body {
   white-space: nowrap;
   pointer-events: none;
 }
-/* 标题栏右侧：添加文件 + 主题钮 + 语言钮。整块 no-drag，否则按钮点不动。 */
+/* 标题栏右侧：添加文件 + 主题钮 + 语言钮。
+   这里不需要任何 no-drag 声明：拖拽区只有 .titlebar-drag-region 那一块（deep），
+   本容器不在其中。原先的 -webkit-app-region: no-drag 是 Electron API，
+   Tauri 的 WKWebView 完全不认，留着只会让人以为拖拽归 CSS 管（D-151）。 */
 .titlebar-right {
   display: flex;
   align-items: center;
   gap: 6px;
-  -webkit-app-region: no-drag;
 }
 .btn-add {
   display: inline-flex;
@@ -146,7 +148,6 @@ body {
 .lang-toggle {
   display: flex;
   gap: 4px;
-  -webkit-app-region: no-drag;
 }
 /* 原生 select 曾无任何样式规则（2026-10-16 UX 审计实测 62×19），命中区
    不足且与相邻按钮不同源。补 24px 命中区与同一视觉语言。 */
