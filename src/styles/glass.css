@@ -57,12 +57,17 @@
   /* ── 遮罩（模态 / 抽屉分档） ── */
   --scrim: rgba(0, 0, 0, 0.55);
   --scrim-drawer: rgba(0, 0, 0, 0.20);
+  /* ── 不透明通告底（notice）：吊销/错误通告带危险色文字，正文不坐玻璃，
+        自带这层不透明托底（D-158 硬约束 1 的配套面）。 ── */
+  --pane-bg: #17171b;
   /* ── lenso 骨架（母版 tokens.css 默认 44 / 260，产品层按设计稿覆写） ── */
   --toolbar-h: 52px;
   --sidebar-w: 220px;
   /* ── 品牌柔光底：三团 radial 的色源 + 160° 线性底的中后段。
         玻璃要有东西可折射：窗口不透明，柔光画进应用自己（D-158 §2）。
-        层序：radial 在前 = 在上，线性底垫底（见各仓 .app-shell / body）。 ── */
+        层序：radial 在前 = 在上，线性底垫底（见各仓 .app-shell / body）。
+        --canvas 是线性底的起点（柔光系统的基色；MD 在 app.css 内覆写为同值）。 ── */
+  --canvas: #000000;
   --canvas-2: #040406;
   --canvas-3: #0b0910;
   --wash-1: #12203f;
@@ -97,6 +102,8 @@
   --glass-shadow-pill: 0 2px 8px rgba(0, 0, 0, 0.10);
   --scrim: rgba(0, 0, 0, 0.40);
   --scrim-drawer: rgba(0, 0, 0, 0.15);
+  --pane-bg: #ffffff;
+  --canvas: #e6e6eb;
   --canvas-2: #eaebf1;
   --canvas-3: #efedef;
   --wash-1: #cfdaf9;
