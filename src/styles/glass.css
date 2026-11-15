@@ -1,0 +1,105 @@
+/* ═══════════════════════════════════════════════════════════════════
+   Lenso 玻璃材质令牌 · 家族母版片段（D-158，2026-11-15 立稿）
+   ═══════════════════════════════════════════════════════════════════
+   规格唯一依据：findings.md `## D-158`（三层配方 / 柔光底 / 骨架 / 硬约束 /
+   落地映射 / 品类差异）。本片段只放**令牌**（CSS 自定义属性）；
+   组件规则一律落在各仓产品层样式（D-158 硬约束 2：tokens.css 是家族 L0
+   母版，玻璃体系不进 tokens.css，各仓 app.css / styles.css 承接组件）。
+
+   同步判据：母版与本片段所有副本 md5 逐份一致（D-90 纪律）。
+   判据脚本：各仓 scripts/verify-glass-contrast.mjs（自 MD 复制并按仓
+   改 CSS 路径）——「玻璃叠内容」必须有叠层对比度判据盯着（D-155）。
+   推广顺序（D-158 §6）：toast → 对话框 → 面板 → 标签条 → 标题栏 → 侧栏 → 状态条。
+   品类差异（D-158 §9）：CAD 只做 chrome，3D 视口保持不透明；
+   Pic2WebP / Compressor 只需 chrome + 面板 + toast；OCR panel 更实；
+   Journal 柔光更淡；PDF / Write 与 MD 同构可直接套。
+
+   已知偏离（相对 lenso 设计稿，MD 1.0.26 实测拍板，勿当规格抄回）：
+   ① 柔光强度约设计稿一半；② 侧栏流内常驻不抽屉；③ 状态条流内短胶囊；
+   ④ 深色 chrome .78/.62（2026-11-15 用户真机判「透光不佳」后自 .92/.78 下调，
+      verify-glass 237×2 仍全过）；⑤ 品牌名只留 18px 图标。
+
+   参考实现：Rocktier MD src/styles/app.css（令牌与组件的落地范本）。
+   ═══════════════════════════════════════════════════════════════════ */
+
+:root {
+  /* ── chrome：标题栏 / 工具条 ── */
+  --glass-chrome-a: rgba(28, 28, 31, 0.78);
+  --glass-chrome-b: rgba(28, 28, 31, 0.62);
+  /* ── panel：侧栏 / 浮起容器 ── */
+  --glass-panel-a: rgba(34, 34, 40, 0.78);
+  --glass-panel-b: rgba(28, 28, 34, 0.76);
+  /* ── drawer：抽屉 / 浮层侧栏（比 panel 透一档） ── */
+  --glass-drawer-a: rgba(48, 48, 56, 0.74);
+  --glass-drawer-b: rgba(36, 36, 43, 0.72);
+  /* ── float：无遮罩托底的浮层（toast / 查找条）——alpha ≥ .90 硬约束，
+        浅色档配深色照片、深色档配白底扫描件时文字不许掉出 4.5:1 ── */
+  --glass-float-a: rgba(28, 28, 32, 0.95);
+  --glass-float-b: rgba(24, 24, 28, 0.93);
+  /* ── pill：状态条 / toast / 标签 / 小控件 ── */
+  --glass-pill-a: rgba(255, 255, 255, 0.10);
+  --glass-pill-b: rgba(255, 255, 255, 0.05);
+  --glass-track: rgba(120, 120, 128, 0.20);
+  --glass-raise-a: rgba(255, 255, 255, 0.16);
+  --glass-raise-b: rgba(255, 255, 255, 0.09);
+  /* ── 发丝边 / 边缝 / 高光 ── */
+  --glass-hairline: rgba(255, 255, 255, 0.10);
+  --glass-hairline-strong: rgba(255, 255, 255, 0.18);
+  --glass-seam: rgba(0, 0, 0, 0.30);
+  --glass-top-sheen: rgba(255, 255, 255, 0.07);
+  --glass-sheen: rgba(255, 255, 255, 0.06);
+  /* ── 滤镜与形体 ── */
+  --glass-blur: 50px;
+  --glass-saturate: 160%;
+  --glass-radius: 18px;
+  --glass-shadow: 0 10px 30px rgba(0, 0, 0, 0.68);
+  --glass-shadow-pill: 0 2px 8px rgba(0, 0, 0, 0.40);
+  /* ── 遮罩（模态 / 抽屉分档） ── */
+  --scrim: rgba(0, 0, 0, 0.55);
+  --scrim-drawer: rgba(0, 0, 0, 0.20);
+  /* ── lenso 骨架（母版 tokens.css 默认 44 / 260，产品层按设计稿覆写） ── */
+  --toolbar-h: 52px;
+  --sidebar-w: 220px;
+  /* ── 品牌柔光底：三团 radial 的色源 + 160° 线性底的中后段。
+        玻璃要有东西可折射：窗口不透明，柔光画进应用自己（D-158 §2）。
+        层序：radial 在前 = 在上，线性底垫底（见各仓 .app-shell / body）。 ── */
+  --canvas-2: #040406;
+  --canvas-3: #0b0910;
+  --wash-1: #12203f;
+  --wash-2: #33142e;
+  --wash-3: #0e2a27;
+}
+
+[data-theme="light"] {
+  --glass-chrome-a: rgba(255, 255, 255, 0.72);
+  --glass-chrome-b: rgba(255, 255, 255, 0.56);
+  --glass-panel-a: rgba(255, 255, 255, 0.80);
+  --glass-panel-b: rgba(250, 250, 252, 0.78);
+  --glass-drawer-a: rgba(255, 255, 255, 0.76);
+  --glass-drawer-b: rgba(251, 251, 253, 0.74);
+  --glass-float-a: rgba(255, 255, 255, 0.96);
+  --glass-float-b: rgba(250, 250, 252, 0.94);
+  --glass-pill-a: rgba(255, 255, 255, 0.86);
+  --glass-pill-b: rgba(255, 255, 255, 0.66);
+  --glass-track: rgba(120, 120, 128, 0.13);
+  --glass-raise-a: rgba(255, 255, 255, 0.98);
+  --glass-raise-b: rgba(255, 255, 255, 0.90);
+  --glass-hairline: rgba(0, 0, 0, 0.10);
+  --glass-hairline-strong: rgba(0, 0, 0, 0.16);
+  --glass-seam: rgba(0, 0, 0, 0.05);
+  --glass-top-sheen: rgba(255, 255, 255, 0.55);
+  --glass-sheen: rgba(255, 255, 255, 0.70);
+  --glass-blur: 25px;
+  /* 设计稿浅色档 saturate(180%)：把背后柔光「提纯」一档，透出来是
+     有色光而不是灰白雾；深色档 160% 照旧。 */
+  --glass-saturate: 180%;
+  --glass-shadow: 0 10px 30px rgba(0, 0, 0, 0.20);
+  --glass-shadow-pill: 0 2px 8px rgba(0, 0, 0, 0.10);
+  --scrim: rgba(0, 0, 0, 0.40);
+  --scrim-drawer: rgba(0, 0, 0, 0.15);
+  --canvas-2: #eaebf1;
+  --canvas-3: #efedef;
+  --wash-1: #cfdaf9;
+  --wash-2: #f9dfe9;
+  --wash-3: #cdece5;
+}
