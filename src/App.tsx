@@ -1,4 +1,4 @@
-import { LOCALES, lookup, type Lang } from "./i18n";
+import { lookup, type Lang } from "./i18n";
 import { PROFILE_I18N } from "./i18n-strings";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
@@ -616,18 +616,21 @@ export default function App() {
               </svg>
             )}
           </button>
-          <div className="lang-toggle">
-            <select
-              className="lang-btn"
-              value={lang}
-              onChange={(e) => setLang(e.target.value as Lang)}
-              aria-label={t("语言", "Language")}
-            >
-              {LOCALES.map((l) => (
-                <option key={l.code} value={l.code}>{l.endonym}</option>
-              ))}
-            </select>
-          </div>
+          {/* 语言切换收成 A+地球图标按钮（2026-11-15 用户令）：en/zh 对切。 */}
+          <button
+            className="icon-btn"
+            onClick={() => setLang(lang === "en" ? "zh" : "en")}
+            aria-label={t("语言", "Language")}
+            title={t("语言", "Language")}
+          >
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M4 16 9 5l5 11" />
+              <path d="M6 12h6" />
+              <circle cx="16.5" cy="16.5" r="4.5" />
+              <ellipse cx="16.5" cy="16.5" rx="2" ry="4.5" />
+              <path d="M12.2 16.5h8.6" />
+            </svg>
+          </button>
         </div>
       </header>
 
