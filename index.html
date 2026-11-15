@@ -13,11 +13,16 @@
           // 2026-10-04：运行时已改读 "rocktier.theme"（键改名统一命名空间），
           // 这里必须同步或回落，否则老用户会看到「先按旧键画首帧、挂载后跳成另一种」。
           var saved = localStorage.getItem("rocktier.theme") || localStorage.getItem("rocktier-compressor-theme");
-          var mode = saved === "light" || saved === "dark" || saved === "auto" ? saved : "auto";
-          document.documentElement.setAttribute("data-theme",
-            mode === "auto"
-              ? (window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark")
-              : mode);
+          var mode;
+          if (saved === "light" || saved === "dark") {
+            mode = saved;
+          } else {
+            // 2026-11-15 取消「跟随系统」：旧存 auto 的按当时系统值一次性落定；
+            // 从没选过的默认深色。落定后持久化，此后不再跟随系统。
+            mode = window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
+            try { localStorage.setItem("rocktier.theme", mode); } catch (e2) {}
+          }
+          document.documentElement.setAttribute("data-theme", mode);
         } catch (e) {
           document.documentElement.setAttribute("data-theme", "dark");
         }

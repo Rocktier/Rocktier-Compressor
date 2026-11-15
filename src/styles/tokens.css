@@ -398,9 +398,10 @@
  * 命中区用 ::after 撑到 40×40 —— 28px 低于无障碍建议的最小点击区，
  * 靠伪元素补足而不改变视觉尺寸。
  *
- * 状态机见 §6.5：auto → light → dark 三态循环，与 MD / Write 一致。
+ * 状态机 2026-11-15 起为两态：light ⇄ dark（用户令：全家族取消「跟随系统」，
+ * 原 §6.5 三态循环退役）。
  * 按钮必须带 aria-label（§10硬性），且**不得只用图标表达状态**：
- * 三态时加 data-mode 属性，配title 说明当前是「跟随系统 / 浅色 / 深色」。
+ * 加 data-mode 属性，配 title 说明当前是「浅色 / 深色」。
  */
 .icon-btn {
   display: inline-flex;
@@ -471,18 +472,18 @@ button.icon-btn:active:not(:disabled) {
   pointer-events: none;
 }
 
-/* ── 三态指示（auto / light / dark 三档必须**肉眼可分**）────────────────
+/* ── 档位指示（light / dark 两档必须**肉眼可分**）────────────────────
  *
- * 2026-10-04 修两处：
+ * 2026-10-04 修两处（历史）：
  *
  * 1) 此前 light 与 dark 两档共用同一条规则 —— 同色同形，循环到哪一档都看不出来，
- *    只有 title/aria-label 里有（而 title 要 hover 才出现）。三态循环等于两态。
- *    现在用**填充图案**区分：auto 空心环 / light 实心点 / dark 半实心。
+ *    只有 title/aria-label 里有（而 title 要 hover 才出现）。现在用**填充图案**
+ *    区分：light 实心点 / dark 半实心（auto 的空心环随三态一并退役）。
  *    5px 下形状差异读不出来，填充差异读得出来 —— 这是选图案而非选形状的原因。
  *
  * 2) 角标此前用 --red，与 .dot-live 撞车：同一个红点在一处表示「运行中」、
  *    在另一处表示「当前档位」。语义必须解耦。角标是**信息**不是**告警**，
- *    红色带危险/品牌暗示，主题档位不该抢这个语义 —— 三档统一走中性灰，
+ *    红色带危险/品牌暗示，主题档位不该抢这个语义 —— 统一走中性灰，
  *    把 --red 留给 .dot-live（活跃）与 .btn-danger（危险）。
  */
 .icon-btn[data-mode]::before {
@@ -499,18 +500,12 @@ button.icon-btn:active:not(:disabled) {
   flex: none;
 }
 
-/* auto（跟随系统）：空心环 */
-.icon-btn[data-mode="auto"]::before {
-  background: transparent;
-  border: 1px solid var(--text-tertiary);
-}
-
 /* light（浅色）：实心 */
 .icon-btn[data-mode="light"]::before {
   background: var(--text-tertiary);
 }
 
-/* dark（深色）：左半实心 —— 与 auto 的空心环、light 的全实心都不同 */
+/* dark（深色）：左半实心 —— 与 light 的全实心不同 */
 .icon-btn[data-mode="dark"]::before {
   background: linear-gradient(
     to right,

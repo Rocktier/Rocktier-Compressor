@@ -164,14 +164,10 @@ export default function App() {
   const revealLabel = isMacOS()
     ? t("在访达中显示", "Show in Finder")
     : t("在文件资源管理器中显示", "Show in File Explorer");
-  // 主题：auto → light → dark 三态（家族 §6.5）。label 走 t() 所以要等 lang 定下来。
+  // 主题：light ⇄ dark 两态（2026-11-15 用户令：全家族取消「跟随系统」）。label 走 t() 所以要等 lang 定下来。
   const { mode: themeMode, cycleTheme } = useTheme();
   const themeLabel =
-    themeMode === "auto"
-      ? t("跟随系统", "Follow system")
-      : themeMode === "light"
-        ? t("浅色", "Light")
-        : t("深色", "Dark");
+    themeMode === "light" ? t("浅色", "Light") : t("深色", "Dark");
 
   // ── License（家族 L6）：读一次试用状态；写操作被拦时由 Rust 发 license-expired
   //    事件（命令层统一发，界面不用在每个 catch 里各判一次），这里弹激活对话框并
@@ -599,7 +595,8 @@ export default function App() {
             </svg>
             {t("添加文件", "Add files")}
           </button>
-          {/* 家族唯一主题按钮：.icon-btn（28×28 + 40×40 命中区），三态 auto→light→dark。
+          {/* 家族唯一主题按钮：.icon-btn（28×28 + 40×40 命中区），两态 light⇄dark，
+              图标只做太阳 / 月亮（2026-11-15 用户令：取消「跟随系统」）。
               Compressor 此前没有任何主题入口，这一枚是新增的。 */}
           <button
             className="icon-btn"
@@ -608,12 +605,7 @@ export default function App() {
             title={`${t("主题", "Theme")} \u00b7 ${themeLabel}`}
             aria-label={`${t("主题", "Theme")}: ${themeLabel}`}
           >
-            {themeMode === "auto" ? (
-              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <rect x="2.5" y="4" width="19" height="13" rx="2" />
-                <path d="M8 20.5h8M12 17v3.5" />
-              </svg>
-            ) : themeMode === "dark" ? (
+            {themeMode === "dark" ? (
               <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                 <circle cx="12" cy="12" r="4" />
                 <path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" />

@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
 
-/** 三态：auto 跟随系统 → light → dark → auto（家族 §6.5 唯一状态机）。 */
-export type ThemeMode = "auto" | "light" | "dark";
+/** 两态：light ⇄ dark。
+ *  2026-11-15 用户令：全家族取消「跟随系统」，原 §6.5 三态状态机
+ *  （auto → light → dark）退役为二态切换；图标只做太阳 / 月亮。 */
+export type ThemeMode = "light" | "dark";
 type Resolved = "light" | "dark";
 
 /** 家族前缀。Compressor 此前完全没有主题系统，这是第一个键，不存在迁移问题。 */
@@ -10,33 +12,10 @@ const THEME_KEY = "rocktier.theme";
 // Compressor 的主题系统那时刚加、用户存量极少，但读取处仍回落旧键 —— 白写一行，换来
 // 「改名永远不丢用户偏好」这条家族规矩不必再逐案讨论。
 const THEME_KEY_LEGACY = "rocktier-compressor-theme";
-const CYCLE: readonly ThemeMode[] = ["auto", "light", "dark"];
-
-function readMode(): ThemeMode {
-  if (typeof window === "undefined") return "auto";
-  try {
-    const stored = (localStorage.getItem(THEME_KEY) ??
-      localStorage.getItem(THEME_KEY_LEGACY)) as ThemeMode | null;
-    if (stored === "auto" || stored === "light" || stored === "dark") return stored;
-  } catch {
-    // 隐私模式 / 存储被禁用：偏好读取失败不能把整个 App 渲染打挂
-  }
-  // 从没手动选过：跟随系统（家族基线）
-  return "auto";
-}
 
 function systemTheme(): Resolved {
   if (typeof window === "undefined") return "dark";
   return window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
-}
-
-/** auto 落成实际生效值 —— data-theme 只接受 light/dark。 */
-function resolveTheme(mode: ThemeMode): Resolved {
-  return mode === "auto" ? systemTheme() : mode;
-}
-
-function applyResolved(resolved: Resolved) {
-  document.documentElement.setAttribute("data-theme", resolved);
 }
 
 function persist(mode: ThemeMode) {
@@ -47,25 +26,43 @@ function persist(mode: ThemeMode) {
   }
 }
 
+function readMode(): ThemeMode {
+  if (typeof window === "undefined") return "dark";
+  try {
+    const stored = (localStorage.getItem(THEME_KEY) ??
+      localStorage.getItem(THEME_KEY_LEGACY)) as ThemeMode | "auto" | null;
+    if (stored === "light" || stored === "dark") return stored;
+    if (stored === "auto") {
+      // 旧「跟随系统」用户：按读取当时的系统值一次性落定并持久化，
+      // 此后不再跟随系统变化（用户看得见的偏好不丢）。
+      const resolved = systemTheme();
+      persist(resolved);
+      return resolved;
+    }
+  } catch {
+    // 隐私模式 / 存储被禁用：偏好读取失败不能把整个 App 渲染打挂
+  }
+  // 从没手动选过：深色（家族基线；2026-11-15 起不再跟随系统）
+  return "dark";
+}
+
+function applyResolved(resolved: Resolved) {
+  document.documentElement.setAttribute("data-theme", resolved);
+}
+
 export function useTheme() {
   const [mode, setMode] = useState<ThemeMode>(readMode);
 
   useEffect(() => {
-    applyResolved(resolveTheme(mode));
+    applyResolved(mode);
   }, [mode]);
 
-  // auto 态下系统外观变了要跟着变；light/dark 是明确选择，不动。
-  useEffect(() => {
-    if (mode !== "auto") return;
-    const mq = window.matchMedia("(prefers-color-scheme: light)");
-    const onChange = () => applyResolved(systemTheme());
-    mq.addEventListener("change", onChange);
-    return () => mq.removeEventListener("change", onChange);
-  }, [mode]);
+  // 「跟随系统」已取消：不再监听 prefers-color-scheme 变化，
+  // light/dark 都是明确选择，启动后保持不变。
 
   const cycleTheme = useCallback(() => {
     setMode((prev) => {
-      const next = CYCLE[(CYCLE.indexOf(prev) + 1) % CYCLE.length];
+      const next: ThemeMode = prev === "dark" ? "light" : "dark";
       persist(next);
       return next;
     });
