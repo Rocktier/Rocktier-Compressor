@@ -595,8 +595,8 @@ export default function App() {
             </svg>
             {t("添加文件", "Add files")}
           </button>
-          {/* 家族唯一主题按钮：.icon-btn（28×28 + 40×40 命中区），两态 light⇄dark，
-              图标只做太阳 / 月亮（2026-11-15 用户令：取消「跟随系统」）。
+          {/* 家族唯一主题按钮：.icon-btn（28×28 + 40×40 命中区），两态 light⇄dark。
+              2026-11-15 二次简化：固定一枚太阳，颜色随主题走（currentColor）。
               Compressor 此前没有任何主题入口，这一枚是新增的。 */}
           <button
             className="icon-btn"
@@ -605,18 +605,12 @@ export default function App() {
             title={`${t("主题", "Theme")} \u00b7 ${themeLabel}`}
             aria-label={`${t("主题", "Theme")}: ${themeLabel}`}
           >
-            {themeMode === "dark" ? (
-              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <circle cx="12" cy="12" r="4" />
-                <path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" />
-              </svg>
-            ) : (
-              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8z" />
-              </svg>
-            )}
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="4" />
+              <path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" />
+            </svg>
           </button>
-          {/* 语言切换收成 A+地球图标按钮（2026-11-15 用户令）：en/zh 对切。 */}
+          {/* 语言切换收成地球图标按钮（2026-11-15 用户令：去 A 只留地球）：en/zh 对切。 */}
           <button
             className="icon-btn"
             onClick={() => setLang(lang === "en" ? "zh" : "en")}
@@ -624,11 +618,9 @@ export default function App() {
             title={t("语言", "Language")}
           >
             <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <path d="M3.5 16.5 8.8 4.5l5.3 12" />
-              <path d="M5.5 11.5h6.6" />
-              <circle cx="16.8" cy="16.8" r="5.2" />
-              <ellipse cx="16.8" cy="16.8" rx="2.3" ry="5.2" />
-              <path d="M11.9 16.8h9.8" />
+              <circle cx="12" cy="12" r="9" />
+              <ellipse cx="12" cy="12" rx="3.8" ry="9" />
+              <path d="M3 12h18" />
             </svg>
           </button>
         </div>
