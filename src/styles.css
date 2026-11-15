@@ -62,6 +62,14 @@ body {
   display: flex;
   flex-direction: column;
   height: 100vh;
+  /* 品牌柔光底（D-158 §2）：窗口不透明，玻璃要透出颜色就得把渐变画进应用自己。
+     三团 radial 在前 = 在上；线性底垫底。令牌在 styles/glass.css（L0 副本）。 */
+  background-color: var(--canvas);
+  background-image:
+    radial-gradient(120% 90% at 12% 0%, var(--wash-1) 0%, transparent 55%),
+    radial-gradient(100% 80% at 92% 8%, var(--wash-2) 0%, transparent 52%),
+    radial-gradient(120% 100% at 60% 110%, var(--wash-3) 0%, transparent 58%),
+    linear-gradient(160deg, var(--canvas) 0%, var(--canvas-2) 50%, var(--canvas-3) 100%);
 }
 
 /* ---------- Title bar ---------- */
@@ -72,8 +80,11 @@ body {
   height: 52px;
   /* titleBarStyle=Overlay：红绿灯悬浮在内容上，左侧必须让出灯位 */
   padding: 0 16px 0 76px;
-  background: var(--surface);
-  border-bottom: 1px solid var(--border);
+  /* chrome 玻璃（D-158 §1）：实色 → 半透，backdrop-filter 才有内容可透 */
+  background: linear-gradient(180deg, var(--glass-chrome-a) 0%, var(--glass-chrome-b) 100%);
+  box-shadow: inset 0 1px 0 var(--glass-top-sheen), inset 0 -1px 0 var(--glass-seam);
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
   /* 标题栏只作为窗口拖动区；标题栏本身不允许选中文字 */
   user-select: none;
 }
@@ -473,9 +484,11 @@ body {
   flex-direction: column;
   gap: 18px;
   padding: 16px 14px;
-  border-left: 1px solid var(--border);
-  /* 浅色档 surface 与 bg 同白，右栏与主区靠底色阶区分（L0 规范） */
-  background: var(--surface-2);
+  /* panel 玻璃（D-158 §1）：右栏浮在柔光底上，内侧发丝边代替实线边框 */
+  background: linear-gradient(180deg, var(--glass-panel-a) 0%, var(--glass-panel-b) 100%);
+  box-shadow: inset 0 0 0 0.5px var(--glass-hairline), inset 1px 0 0 0 var(--glass-hairline);
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
   overflow-y: auto;
   scrollbar-width: none;
   min-height: 0;
@@ -585,9 +598,11 @@ body {
   display: flex;
   align-items: center;
   gap: 8px;
-  /* 与右栏同阶：浅色档下与主区分层 */
-  background: var(--surface-2);
-  border-top: 1px solid var(--border);
+  /* chrome 玻璃（D-158 §1，同 PDF 状态条）：顶缘 seam 代替实线边框 */
+  background: linear-gradient(180deg, var(--glass-chrome-a) 0%, var(--glass-chrome-b) 100%);
+  box-shadow: inset 0 0 0 0.5px var(--glass-hairline), inset 0 1px 0 var(--glass-seam);
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
   font-size: 12px;
   color: var(--text-muted);
   flex: none;
@@ -691,28 +706,32 @@ body {
 .license-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.6);
+  /* 遮罩 scrim（D-158 §1 模态档）：压暗 + 25px 模糊，托住玻璃对话框 */
+  background: rgba(0, 0, 0, 0.55);
   z-index: 60;
   display: flex;
   align-items: center;
   justify-content: center;
-  backdrop-filter: blur(2px);
+  backdrop-filter: blur(25px);
+  -webkit-backdrop-filter: blur(25px);
 }
 
 .license-dialog {
   width: min(440px, calc(100vw - 48px));
   max-height: min(80vh, 560px);
   overflow-y: auto;
-  background: var(--surface);
-  /* L3 Overlay（规范 v2.2 §2.3）：层级边框 + 最重档阴影，配 overlay 遮罩。
+  /* panel 玻璃（D-158 §1 模态档） */
+  background: linear-gradient(180deg, var(--glass-panel-a) 0%, var(--glass-panel-b) 100%);
+  /* L3 Overlay（规范 v2.2 §2.3）：层级发丝边 + 最重档阴影，配 overlay 遮罩。
      修正一处无效声明（findings D-72）：此前写的是
      box-shadow: 0 16px 48px var(--page-shadow, rgba(0,0,0,.5)) ——
      --page-shadow 本身是完整阴影值（0 2px 24px …），当色值传进去会合成出
      6 个长度的无效 box-shadow，整个声明被浏览器丢弃：两个对话框实际一直
      是零阴影，模态与页面之间没有任何分离（深色档尤其明显）。 */
-  border: 1px solid var(--elev-border);
   border-radius: var(--radius);
-  box-shadow: var(--elev-overlay);
+  box-shadow: inset 0 0 0 0.5px var(--glass-hairline), 0 12px 40px rgba(0, 0, 0, 0.38);
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
   padding: 16px 18px;
   font-size: 13px;
   color: var(--text);
