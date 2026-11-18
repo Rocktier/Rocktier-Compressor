@@ -113,7 +113,10 @@ const APP_VERSION = currentVersion();
 
 export default function App() {
   const [lang, setLang] = useState<Lang>(() => {
-    const saved = localStorage.getItem("rocktier.lang");
+    // 2026-11-18 起与 PDF 仓同构：每应用命名空间 rocktier.compressor.lang；
+    // 旧键 rocktier.lang 仅作读取回落，一次迁移后不再使用。
+    const saved =
+      localStorage.getItem("rocktier.compressor.lang") ?? localStorage.getItem("rocktier.lang");
     return saved === "zh" || saved === "en" ? (saved as Lang) : "en"; // 家族规范：默认英文，不跟随系统
   });
   const [profiles, setProfiles] = useState<Profile[]>([]);
@@ -521,7 +524,7 @@ export default function App() {
 
   // Language switch → persist + rebuild native menu (family standard).
   useEffect(() => {
-    localStorage.setItem("rocktier.lang", lang);
+    localStorage.setItem("rocktier.compressor.lang", lang);
     invoke("build_menu", { lang }).catch(() => {});
     document.title = "Rocktier Compressor";
     // 无障碍底线：屏幕阅读器要用对应语言的语音引擎朗读
