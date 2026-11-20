@@ -437,8 +437,19 @@ async function runChecks(id, product, dir) {
     write:      { mode: "blocks", files: ["src/i18n.ts"] },
     pic2webp:   { mode: "blocks", files: ["src/i18n.js"] },
     ocr:        { mode: "blocks", files: ["ui/lang.js"] },
-    journal:    { mode: "blocks", files: ["src/i18n/index.ts"],
-                  langNames: { en: ["en-US"], zh: ["zh-CN"] }, leafOnly: true },
+    /* Journal 2026-11-18 起与 PDF 同构：en.ts / zh.ts 各一份嵌套字典，
+       index.ts 只剩 STRINGS 映射与查找函数。此前适配表还指着 index.ts，
+       两种语言都取到 0 个键 —— WARN 里的「en=0 zh=0」是检查脚本自己不认字了，
+       不是字典缺键。
+       用 file-per-lang 也不行：那个模式对**整个文件**跑正则，字典里的句子
+       本身会撞上「词 + 冒号 + 引号」（`…irreversible erasure:",` 取到 erasure、
+       `may help:",` 取到 help、`Mood: {m}` 取到 Mood），而中文用全角冒号，
+       于是报成「只在 en 有」。改成按 `export const en = {` 的对象字面量
+       扫括号取键，注释、字符串、嵌套都能正确跳过。
+       嵌套层只比顶层（calendar / search / settings…）；层内差异由 tsc 的
+       `zh: Strings` 结构校验兜住，不需要这里再比一遍。 */
+    journal:    { mode: "object-per-lang", files: ["src/i18n/en.ts", "src/i18n/zh.ts"],
+                  exports: ["en", "zh"] },
     sign:       { mode: "co-located", files: ["src/i18n.ts"] },
     "cad-viewer": { mode: "none", reason: "行内三元双语（lang===\"zh\" ? … : …），无独立 en/zh 字典" },
     compressor: { mode: "profile-table", files: ["src/i18n-strings.ts"],
@@ -579,6 +590,22 @@ async function runChecks(id, product, dir) {
     if (AD.mode === "file-per-lang") {
       E = fileKeys(read(files[0] || ""));
       Z = fileKeys(read(files[1] || ""));
+    } else if (AD.mode === "object-per-lang") {
+      /* 分文件 + 每份一个 `export const <lang> = { … }` 对象字面量。
+         只在对象体内取键，不碰文件里的其余文本。 */
+      const names = AD.exports || ["en", "zh"];
+      [E, Z] = [0, 1].map((i) => {
+        const src = read(files[i] || "");
+        const acc = new Set();
+        for (const n of [names[i]]) {
+          const re = new RegExp(`export\\s+const\\s+${n}\\s*(?::[^=]+)?=\\s*\\{`, "g");
+          let m;
+          while ((m = re.exec(src))) {
+            for (const k of collectBlockKeys(src, m.index + m[0].length - 1)) acc.add(k);
+          }
+        }
+        return acc;
+      });
     } else if (AD.mode === "blocks") {
       for (const f of files) {
         const t = read(f);
